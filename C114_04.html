@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> 三年級國語文科互動解析</title>
+    
+    <!-- 引入 Google Fonts: Iansui (芫荽體) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Iansui&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+
+
+@keyframes highlight-fade {
+    0% { background-color: #fee2e2; transform: scale(1.02); }
+    100% { background-color: transparent; transform: scale(1); }
+}
+.highlight-q {
+    animation: highlight-fade 2s ease-out;
+    border-radius: 1rem;
+}
+        /* CSS Reset & Basic Layout Constraints */
+        html {
+            font-size: 20px; /* 大字體設定 */
+            scroll-behavior: smooth;
+        }
+        
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background-color: #fafaf9; 
+            color: #292524; 
+            font-family: 'Iansui', 'Microsoft JhengHei', sans-serif !important; 
+            line-height: 1.7; 
+            letter-spacing: 0.03em;
+        }
+        
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 350px; }
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+
+        /* Transitions */
+        .interactive-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .interactive-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        
+        /* Score Pop Animation */
+        @keyframes scorePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        .score-animate { animation: scorePop 0.4s ease-out; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0d9488', 
+                        primaryLight: '#ccfbf1',
+                        accent: '#ea580c', 
+                        neutralBg: '#fafaf9',
+                        neutralCard: '#ffffff',
+                        textMain: '#292524',
+                        textMuted: '#78716c',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.4s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-neutralBg text-textMain min-h-screen pb-12 relative">
+
+    <!-- Header (不固定，隨畫面往上滑動消失) -->
+    <header class="bg-white border-b border-stone-200 shadow-sm relative z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-xl md:text-2xl font-bold text-primary flex items-center justify-center md:justify-start gap-2">
+                    <span class="text-3xl">📊</span> 114年國語文檢測解析
+                </h1>
+            </div>
+            
+            <!-- 計分板 (Score Board) 包含正確率 -->
+            <div class="flex items-center gap-3">
+                <div id="score-board" class="bg-teal-50 text-teal-900 px-5 py-3 rounded-xl font-bold shadow-sm border border-teal-200 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 transition-transform">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl">🏆</span> 
+                        <span class="text-xl tracking-wider">
+                            答對 <span id="score-correct" class="text-4xl text-accent mx-1">0</span> / 共 <span id="score-total" class="text-2xl mx-1">0</span> 題
+                        </span>
+                    </div>
+
+<div id="wrong-answer-nav" class="max-w-4xl mx-auto mt-6 px-4 hidden">
+    <div class="bg-white rounded-2xl shadow-md border-2 border-red-100 p-6">
+        <h3 class="text-2xl font-bold text-red-600 mb-4 flex items-center gap-2">
+            <span>📌 錯題快速檢視：</span>
+            <span class="text-lg font-normal text-stone-500">(點擊題號可直接跳轉解析)</span>
+        </h3>
+        <div id="wrong-buttons-container" class="flex flex-wrap gap-3">
+            </div>
+    </div>
+</div>
+                    <div class="bg-white px-4 py-1.5 rounded-lg border border-teal-100 text-lg shadow-sm">
+                        正確率：<span id="score-percent" class="text-2xl text-primary font-black">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+<div class="bg-stone-100 border-t border-stone-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-6 py-2 text-xl font-bold rounded-lg bg-white shadow-md text-primary transition-colors">🎯 測驗總覽</button>
+                    <button onclick="switchTab('explorer')" id="nav-explorer" class="px-6 py-2 text-xl font-bold rounded-lg text-textMuted hover:text-textMain hover:bg-stone-200 transition-colors">🔍 概念題庫</button>
+                    <button onclick="switchTab('reading')" id="nav-reading" class="px-6 py-2 text-xl font-bold rounded-lg text-textMuted hover:text-textMain hover:bg-stone-200 transition-colors">📚 閱讀文本庫</button>
+                </div>
+<input type="text" id="student-number" placeholder="請輸入座號 (例: 13)" class="px-4 py-2 text-xl rounded-lg border-2 border-stone-300 focus:border-primary focus:outline-none w-48">
+                <button onclick="submitQuiz()" id="btn-submit" class="px-6 py-2 text-xl font-bold rounded-lg bg-accent text-white shadow-md hover:bg-orange-700 transition-colors">📝 確認交卷</button>
+            </div>
+        </div>    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+
+        <!-- SECTION 1: Dashboard -->
+        <section id="sec-dashboard" class="block animate-fade-in">
+            <div class="mb-8 bg-white p-8 rounded-xl shadow-sm border border-stone-100">
+                <h2 class="text-3xl font-bold text-textMain mb-4 flex items-center gap-2">
+                    <span>歡迎來到原題測驗總覽！</span>
+                </h2>
+                <p class="text-textMuted leading-relaxed text-2xl">
+                    本系統收錄了<strong>三年級國語文能力檢測的 30 題試題</strong>。請點選上方的「<strong class="text-primary">🔍 概念題庫</strong>」或「<strong class="text-primary">📚 閱讀文本庫</strong>」開始挑戰。系統會根據你的作答狀況即時給分並計算正確率，答題後還能看到詳細的觀念解析喔！
+                </p>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-5xl mb-3">📝</span>
+                    <span class="text-6xl font-black text-primary">30</span>
+                    <span class="text-xl text-textMuted mt-2">總題數</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-5xl mb-3">⏱️</span>
+                    <span class="text-6xl font-black text-accent">40</span>
+                    <span class="text-xl text-textMuted mt-2">建議時間 (分鐘)</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-5xl mb-3">🧠</span>
+                    <span class="text-6xl font-black text-stone-700">13</span>
+                    <span class="text-xl text-textMuted mt-2">語文知識題 (1~13)</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-5xl mb-3">📖</span>
+                    <span class="text-6xl font-black text-stone-700">17</span>
+                    <span class="text-xl text-textMuted mt-2">閱讀理解題 (14~30)</span>
+                </div>
+            </div>
+
+            <!-- Charts Area -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-2xl font-bold text-center mb-4">領域題型配比</h3>
+                    <div class="chart-container"><canvas id="domainChart"></canvas></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-2xl font-bold text-center mb-4">試卷概念分布</h3>
+                    <div class="chart-container"><canvas id="conceptChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Explorer (Q1-Q21) -->
+        <section id="sec-explorer" class="hidden animate-fade-in">
+            <!-- Filters -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-100 mb-6">
+                <div class="flex flex-wrap gap-3 items-center" id="filter-container">
+                    <span class="text-2xl font-bold mr-2">篩選題型：</span>
+                    <!-- Buttons generated by JS -->
+                </div>
+            </div>
+
+            <!-- Questions Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8" id="questions-grid">
+                <!-- Cards generated by JS -->
+            </div>
+        </section>
+
+        <!-- SECTION 3: Reading Texts (Q22-Q30) -->
+        <section id="sec-reading" class="hidden animate-fade-in">
+            <div class="flex flex-col lg:flex-row gap-8 lg:h-[calc(100vh-80px)] min-h-[900px]">
+                <!-- Text Selection & Display (Left) -->
+                <div class="lg:w-[55%] flex flex-col bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
+                    <div class="px-4 pt-4 pb-0 bg-stone-100 border-b-4 border-stone-900 flex items-end gap-2 overflow-x-auto custom-scrollbar" id="text-tabs">                        <!-- Tabs generated by JS -->
+                    </div>
+                    <div class="p-8 overflow-y-auto custom-scrollbar flex-grow bg-white" id="text-content">
+                        <!-- Text generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Associated Questions (Right) -->
+                <div class="lg:w-[45%] flex flex-col bg-stone-100 rounded-xl p-6 overflow-y-auto custom-scrollbar shadow-inner" id="text-questions">
+                    <!-- Questions generated by JS -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 回到最上層按鈕 -->
+    <button id="backToTopBtn" onclick="scrollToTop()" class="fixed bottom-6 right-6 bg-teal-600 text-white w-16 h-16 rounded-full shadow-lg hover:bg-teal-700 hover:-translate-y-1 transition-all duration-300 z-50 flex flex-col items-center justify-center opacity-0 pointer-events-none border-2 border-white">
+        <span class="text-3xl leading-none font-black">⬆</span>
+        <span class="text-sm font-bold mt-1 tracking-widest">TOP</span>
+    </button>
+
+    <!-- JS Logic & Data Storage -->
+    <script>
+        // --- DATA STORAGE (100% 原始題庫與對應解析) ---
+const testData = {
+            overview: { knowledge: 13, reading: 17 },
+            concepts: {
+                "字音字形": 3, "詞彙語意": 6, "句型標點": 3,
+                "修辭寫作": 4, "大意主旨": 5, "訊息推論": 9
+            },
+            answeredState: {}, // 紀錄答對與否 (交卷後才寫入)
+            userChoices: {},   // 紀錄使用者選了哪個選項
+            isSubmitted: false, // 紀錄是否已經交卷            
+            texts: [
+                {
+                    id: "text-1",
+                    title: "篇章一",
+                    type: "記敘文",
+                    content: `<h3 class="text-3xl font-bold text-teal-800 mb-6 border-b-2 border-teal-200 pb-2">我懂你</h3> 開學第二天,班上轉來了一位新同學 婷如。婷如披散著一頭略顯雜亂的黑長髮,穿著有些破舊又有點髒污的運動服。在老師的介紹下,害羞的站起來小聲與大家打招呼。她顯得有些不知所措,只說了自己的名字就呆站在原地,老師只好請她先坐下。<br><br>婷如剛來新學校,對一切都感到很陌生,也不太知道該說什麼、做什麼,總是一個人靜靜的坐在角落裡。同學們對婷如感到很好奇,所以聚在一起時難免會小聲的猜測與討論婷如是從哪裡來的?有的說婷如是從山上的小學轉來的,因為她身上運動服繡的字;有的說婷如跟奶奶住,因為有看過一個年紀很大的女人來接她放學。<br><br>這些試探的眼神與小聲的議論,讓婷如感到很不自在。有些同學的表情動作,更讓婷如猜想他們是不是在取笑她。這讓婷如感到不太舒服,但她不知道該怎麼處理,也不知道該對誰說,就變得更加沉默了………......<br><br>一天午休,我看到婷如呆坐在角落,孤單的低著頭,似乎不太想與大家互動。看她那樣,我不禁想起自己剛上學時的情景。那時,我也曾因為不認識新環境而感到不安,心裡很害怕沒有人會和我說話。多虧了我現在的好朋友 詩涵,那時她主動來找我聊天,大方開朗的態度讓我覺得溫暖又安心。在彼此的陪伴下,我很快的就適應了新環境。<br><br>於是,我鼓起勇氣,走向婷如,坐在她的旁邊,輕聲對她說:「嗨,婷如,我是小玲,你要和我們一起玩紅綠燈嗎?」婷如抬起頭,眼神有些驚訝,但看到我微笑的臉,她的嘴角也露出了些微笑容。「好啊!」婷如輕輕回答,語氣中透著一絲小心,但也有點期待。<br><br>從那天開始,我每天都會主動找她聊幾句,告訴她一些班上的趣事,還介紹了幾個同學給她認識。隨著時間的推移,婷如的笑容多了,也會主動來找我們聊天、玩遊戲,她真正成為了班上的一分子。看著婷如的笑容,我心裡也感到一種說不出的滿足。`,
+                    questions: [22, 23, 24]
+                },
+                {
+                    id: "text-2",
+                    title: "篇章二",
+                    type: "童話故事",
+                    content: `<h3 class="text-3xl font-bold text-teal-800 mb-6 border-b-2 border-teal-200 pb-2">歡迎,請上船</h3>  搬家那天,小威把從小到大的玩具收成好大一箱。抬上車,一隻黃色小鴨鴨從紙箱裡鑽出頭來。這是小鴨鴨第一次離開家,他睜著圓圓的大眼睛東看西看。<br><br>小威回頭看看家,依依不捨的上車了。小貨車噗噗噗的往前,突然一隻小狗從車子前面衝過。小威爸爸急忙踩煞車,嘰———小狗沒事,小威和爸爸也沒事;但黃色小鴨鴨卻滾下來,滾進水溝裡。<br><br>黑漆漆的水溝裡,什麼都看不清楚,只有爛爛的泥巴和臭臭的味道。<br>「我在這裡呢!」小鴨鴨大叫,「小威!小威!我在這裡!」<br>小威沒聽到,小貨車沒停下來,噗噗噗的走了,越走越遠。<br>這下該怎麼辦呀?<br><br>一隻小老鼠咬他的尾巴:「你這隻烤鴨不好吃。」<br>「我不是烤鴨。」小鴨鴨說。<br>「所以沒有用處。」小老鼠把他踢進水裡。「我得去找食物,沒空理你。」小老鼠連再見也沒說就走了。<br>小鴨鴨眼角含著淚水:「我有用處,我真的有用。」<br><br>小鴨鴨被水流慢慢的帶走。前進呀前進,不知道過了多久,前方出現一點亮光,由小而大,從暗到亮。他流進那片光,接著穿出了水溝,啊!流進了一條小河。<br>天空變寬了,河邊開滿小花。哇!連空氣也變好了。<br>小鴨鴨看到一隻大青蛙從水裡抬起頭,看起來凶凶的。<br>「你不是真鴨子。」大青蛙驕傲的問:「你會潛水嗎?」<br>小鴨鴨回說:「不會。但是你如果按按我,我會呱呱呱。」<br>大青蛙按了他一下,小鴨鴨卻發不出聲音。<br>「壞掉了,難怪沒人要。」大青蛙露出輕視的表情。<br>「我是自己掉下來的,不是沒人要的,我的主人叫…………………」小鴨鴨還在解釋,大青蛙卻跳走了。<br><br>一片特別低的荷葉上,站了六隻小螞蟻。<br>「喂,鴨子。」一隻扛著米粒的黑螞蟻在叫喚。他們的頭上都是汗水。<br>小鴨鴨說:「什麼事?我不能吃,也不會潛水呵!」<br>「現在我們只想搭船。」黑螞蟻說:「我們已經從早上走到現在了。」<br>「歡迎呀!」小鴨鴨說:「歡迎你們跟我做伴。」<br><br>陽光很強,風很涼,風裡還有荷花的味道,幾隻小魚游在水底下,他們也想邀小鴨鴨比游泳:「看誰先游出這片荷花田。」<br>小鴨鴨搖搖頭:「我得送小螞蟻回家。」<br>綠色的荷葉在風裡搖曳,幾隻小蜜蜂提著花蜜:「小鴨鴨,我們也想搭船,行不行?」<br>小鴨鴨驕傲的說:「歡迎,請上船。」<br>這艘小船,歡迎大家搭乘,順著藍色的水流,小鴨鴨會載著大家,向前再向前。`,
+                    questions: [25, 26, 27]
+                },
+                {
+                    id: "text-3",
+                    title: "篇章三",
+                    type: "說明文",
+                    content: `<h3 class="text-3xl font-bold text-teal-800 mb-6 border-b-2 border-teal-200 pb-2">海馬</h3>  在廣闊的大海中,有好多美麗的魚兒優游,但有一種魚長得不像魚,身體直立於海中,還有長長的嘴跟尾巴,睜著圓圓的眼睛隨著海流晃啊晃。沒錯!牠就是可愛的海馬。<br><br>海馬是海龍科的魚類,生活在溫暖、有海草或珊瑚生長的淺水海域。牠沒有尾鰭,只有長長的尾巴。<em>（註：海馬的身體特徵包含「像吸管的長嘴巴」、「控制方向的胸鰭」、「負責前進的背鰭」以及「可捲曲的尾巴」。）</em><br><br>海馬雖然是魚,但行動方式卻跟一般魚類不同,魚兒擺動尾鰭游泳,海馬卻是挺直著身體游泳。由於沒有靈活的尾鰭,所以靠著胸鰭保持平衡,擺動背鰭前進。<br><br>看起來呆呆的海馬,其實擁有一身好本領。牠披著堅硬的骨板,有靈活的尾巴,有分開轉動的眼珠,更有如同變色龍般的變色能力,讓牠們在危機四伏的大海中,能夠確保自己的安全。<br><br><strong>跟著環境變顏色</strong><br>海馬的體色會隨著環境改變,以用來躲避天敵和獵捕獵物。因為海馬的皮膚上有許多色素細胞,透過這些細胞的膨脹和收縮來改變體色。世界上最小的海馬—————豆丁海馬,就是利用這種變色能力,讓自己完美的隱藏或埋伏在珊瑚礁中。<br><br><strong>長尾巴穩住身體</strong><br>海馬是全世界游得最慢的魚,畢竟牠只能靠著一小片的背鰭來推動前進。不過,海馬的長尾巴卻很靈活,牠精彩的求偶舞就是靠尾巴來舞動的。除了游動期間,牠們在休息或是獵食的時候,更會利用尾巴纏住珊瑚或海草,穩固自己不被海流沖走,讓自己更安全。<br><br><strong>長嘴巴吸食東西</strong><br>海馬沒有牙齒,牠們的嘴巴很小,但吸力很強,可以將獵物吸入嘴中。靠著長嘴巴吸食浮游生物和小型甲殼類生物,然後直接進入腸道消化。由於海馬沒有胃,消化功能比較不好,所以一天要吃上好多餐,才足以維持生命。<br><br><strong>分開轉動的眼珠</strong><br>海馬的眼睛也跟變色龍一樣，兩邊的眼珠可各自獨立轉動，以便在覓食的同時，能注意周遭環境是否安全。`,
+                    questions: [28, 29, 30]
+                }
+            ],
+            questions: [
+                { id: 1, category: "語文知識", concept: "字音字形", text: "下列哪一個選項,前後「」中的國字讀音相同?", options: ["他在此「祈」求家人安康。/這場車禍造成她大腿骨「折」。", "姐姐的成「績」向來優異。/書桌上堆「積」了不少舊書報。", "請不要「移」動這些物品。/她從小就過著奢「侈」的生活。", "這種海「藻」在海邊常見。/城市裡常常有惱人的「噪」音。"], answer: 1, 
+                  explanation: "我們把每個選項唸唸看：<br>① 「祈」求(ㄑㄧˊ) / 骨「折」(ㄓㄜˊ)<br>② 成「績」(ㄐㄧ) / 堆「積」(ㄐㄧ)，兩個字的音完全一樣喔！<br>③ 「移」動(ㄧˊ) / 奢「侈」(ㄔˇ)<br>④ 海「藻」(ㄗㄠˇ) / 「噪」音(ㄗㄠˋ)<br>所以正確答案是②。" },
+                { id: 2, category: "語文知識", concept: "字音字形", text: "警方針對這起凶殺案,展開「調」查行動。\n上面句子的「調」字,與下列哪一個選項的「調」字讀音相同?", options: ["弟弟一向「調」皮搗蛋,只有爸爸媽媽在身旁時才會遵守規矩。", "最近公司的業績蒸蒸日上,因此老闆決定為所有員工「調」薪。", "原本不起眼的豆腐,經過媽媽的烹「調」後就變得美味可口了。", "這首歌的曲「調」婉轉動人,你只要聽過一次就會想聽第二次。"], answer: 3, 
+                  explanation: "題目中「調」查的讀音是 <strong>ㄉㄧㄠˋ</strong>。<br>來看看選項裡的讀音：<br>① 「調」皮 (ㄊㄧㄠˊ)<br>② 「調」薪 (ㄊㄧㄠˊ)：指調整薪水。<br>③ 烹「調」 (ㄊㄧㄠˊ)：指料理調味。<br>④ 曲「調」 (ㄉㄧㄠˋ)：指音樂的聲調，跟調查一樣讀音！<br>因此正確答案是④。" },
+                { id: 3, category: "語文知識", concept: "字音字形", text: "風一吹來,稻田裡掀起了陣陣「 ㄌㄩˋ」色波浪,讓我忍不住拿起手機把這一切記「ㄌㄨˋ」下來。\n句子中「」內依序應填入什麼字?", options: ["緣/錄", "綠/碌", "緣/碌", "綠/錄"], answer: 3, 
+                  explanation: "這裡有兩組容易搞混的字型！<br>🔹 <strong>綠 vs 緣</strong>：稻田是綠色的，所以「ㄌㄩˋ」要填「綠」（糸部）；「緣」是緣分的緣，讀音是ㄩㄢˊ。<br>🔹 <strong>錄 vs 碌</strong>：把東西「記」下來，叫做紀「錄」（金部）；如果是忙「碌」的碌，則是石部。<br>因此正確組合是「綠／錄」，答案選④。" },
+                { id: 4, category: "語文知識", concept: "詞彙語意", text: "下列哪一個選項,前後詞語意思相同?", options: ["萬無一失/十拿九穩", "栩栩如生/談笑風生", "靈機一動/有機可乘", "巧奪天工/熟能生巧"], answer: 0, 
+                  explanation: "我們要找兩個意思相近的詞語。<br>①「萬無一失」和「十拿九穩」都是用來形容「非常有把握、絕對不會出錯」，所以意思相同，是正確答案。<br>② 栩栩如生(形容像活的一樣) / 談笑風生(形容聊天很愉快)。<br>③ 靈機一動(突然想到好點子) / 有機可乘(有漏洞或機會可以利用)。<br>④ 巧奪天工(形容手藝極高) / 熟能生巧(多練習就能找出好方法)。" },
+                { id: 5, category: "語文知識", concept: "詞彙語意", text: "下列選項的詞語解釋,哪一個正確?", options: ["知己知彼:知道自己的人緣很好。", "奮不顧身:不顧生死的奮勇向前。", "心驚膽戰:內心驚訝卻努力作戰。", "花言巧語:既實在又動聽的言語。"], answer: 1, 
+                  explanation: "✅ ② 解釋正確！「奮不顧身」就是奮勇向前，連自己的生命都不顧了。<br>❌ ① 知己知彼：是指了解自己，也了解對手的情況。<br>❌ ③ 心驚膽戰：形容非常害怕、恐懼，不是真的要去作戰。<br>❌ ④ 花言巧語：是指用虛假但好聽的話來騙人，一點都不「實在」。" },
+                { id: 6, category: "語文知識", concept: "句型標點", text: "「慢慢的搓揉」是由副詞「慢慢的」加上動詞「搓揉」所組成的詞語。\n請問下列哪一個選項的詞語組成方式與「慢慢的搓揉」相同?", options: ["奇妙的滋味", "往日的時光", "仔細的品嘗", "美麗的世界"], answer: 2, 
+                  explanation: "題目的結構是：「形容動作的方式（副詞）」＋「一個動作（動詞）」。<br>③「仔細的（形容動作）」＋「品嘗（一個動作）」，完全符合這個結構！<br>其他選項（奇妙的滋味、往日的時光、美麗的世界）都是「形容詞＋名詞（東西）」，沒有包含動作喔。" },
+                { id: 7, category: "語文知識", concept: "句型標點", text: "妹妹一邊騎腳踏車,一邊哼歌。\n上面的句子屬於「並列句」,下列哪一個選項也是「並列句」?", options: ["我每次吃東西前,一定會先洗手。", "他因為沒寫作業,而被禁止下課。", "哥哥喜歡吃水果,也喜歡吃蔬菜。", "你放學後是回家,還是去安親班?"], answer: 2, 
+                  explanation: "「並列句」代表兩件事情平等、同時發生，沒有誰先誰後，也沒有因果關係。<br>③「哥哥喜歡吃水果，也喜歡吃蔬菜。」這兩樣喜歡的事情是並列存在的，屬於並列句。<br>（補充：①是承接句/條件句，②是因果句，④是選擇句。）" },
+                { id: 8, category: "語文知識", concept: "詞彙語意", text: "到餐廳用餐時,弟弟不但沒有認真專心吃飯,還一直目不轉睛的看著窗外來往的車輛。\n上面的句子應刪除哪一個詞語,才會變得最合理、通順?", options: ["認真", "用餐", "一直", "來往"], answer: 0, 
+                  explanation: "這句話裡的「認真」和「專心」意思幾乎一樣，把它們疊放在一起會顯得語意重複（這叫做冗言贅字）。<br>只要刪除「認真」，留下「專心吃飯」，句子讀起來就會非常通順囉！" },
+                { id: 9, category: "語文知識", concept: "句型標點", text: "你快點說吧（    ） 這枝掃把是不是你弄斷的（       ） \n上面句子的空格裡,按照順序應該填入哪些標點符號?", options: ["， 。", "！ 。", "， ？", "！ ？"], answer: 3, 
+                  explanation: "「你快點說吧」帶有催促、要求對方回答的語氣，情緒較強烈，不只是單純停頓，因此應使用驚嘆號「！」，表達語氣的急切與強調。<br>「這枝掃把是不是你弄斷的」這是一句問別人的問題，所以結尾要用問號「？」。<br>因此正確組合是「！ ？」答案選④。" },
+                { id: 10, category: "語文知識", concept: "修辭寫作", text: "運用「擬人法」,可以讓文句更生動有趣。下列哪一個選項運用了「擬人法」?", options: ["街邊的路燈,用它的光亮擁抱著我。", "他美妙的歌聲,傳遍了每一個角落。", "天上的太陽,是我永遠玩不到的皮球。", "麻雀在樹梢上輕輕跳動,揮舞翅膀。"], answer: 0, 
+                  explanation: "「擬人法」就是把大自然沒有生命的物品，當作「人」來寫，讓它會做人的動作或帶有人的感情。<br>① 說路燈會用光亮「擁抱」我，把路燈當作有手、溫暖的人一樣，這就是標準的擬人法！<br>（選項③是譬喻法，把太陽比喻成皮球。）" },
+                { id: 11, category: "語文知識", concept: "修辭寫作", text: "下列每個選項都是寫作大綱,哪一個是採用因果式(原因、經過、結果)的結構來安排文章內容?", options: ["春天來了萬物恢復生機 → 夏天時鳳凰花開蟬聲鳴 → 秋高氣爽金黃落葉紛飛", "學校的前庭有繽紛花草 → 教學大樓有琅琅讀書聲 → 後方的操場是遊戲天堂", "人類製造許多塑膠製品 → 廢棄塑膠大量流入海裡 → 使得海洋生物受到威脅", "我的興趣很廣泛 → 我喜歡靜態的閱讀、畫畫 → 我也喜歡各種動態活動"], answer: 2, 
+                  explanation: "「因果式」代表前面發生的事情，導致了後面的結果。<br>③ 人類製造塑膠（原因）→ 廢棄流入海裡（經過）→ 使得海洋生物受威脅（結果），這完全符合因果邏輯關係！<br>（①是時間順序，②是空間順序，④是總分並列。）" },
+                { id: 12, category: "語文知識", concept: "修辭寫作", text: "將身體或皮膚接觸事物所得到的感覺描寫出來,就是觸覺摹寫。\n下列哪一個選項運用了觸覺摹寫?", options: ["冰冷的雨水一次次打痛我的臉頰。", "淡紅荷花零星分布在綠色荷葉間。", "窗外正嘩啦嘩啦的下著傾盆大雨。", "一陣淡淡的米飯香從廚房裡飄來。"], answer: 0, 
+                  explanation: "請想像你閉上眼睛：<br>①「冰冷」和「打痛」是必須用你的「皮膚」去接觸雨水才能感受到的，這就是觸覺摹寫。<br>（②是眼睛看的視覺；③是耳朵聽的聽覺；④是鼻子聞的嗅覺。）" },
+                { id: 13, category: "語文知識", concept: "修辭寫作", text: "媽媽:\n今天放學後,我要留在學校練習合唱比賽的曲目,大約晚上六點會回到家。\n兒子東東敬上\n12月20日\n上面的文本,屬於下列哪一種文體?", options: ["抒情文", "說明文", "應用文", "記敘文"], answer: 2, 
+                  explanation: "這是一張用來交代行蹤的「便條」。這類文章有特定的格式（稱謂、署名、日期），且是為了解決日常生活問題而寫的實用文書，我們統稱為「應用文」。" },
+                
+                // Q14~Q21 歸入閱讀理解/語文知識延伸
+                { id: 14, category: "語文知識延伸", concept: "詞彙語意", text: "下列哪一個選項,前後「」內的字意思相同?", options: ["忍痛割「捨」/接受施「捨」", "開路先「鋒」/部隊前「鋒」", "心「酸」故事/「酸」甜苦辣", "記「載」事實/「載」貨回家"], answer: 1, 
+                  explanation: "②開路先「鋒」和部隊前「鋒」的「鋒」，都是指「在前面帶頭的人事物」，意思完全相同。<br>（①捨棄/給予；③悲痛/酸味；④記錄/裝運。意思都不一樣喔。）" },
+                { id: 15, category: "語文知識延伸", concept: "詞彙語意", text: "我把硬幣投進許願池裡,希望心願可以真的實現。\n上面句子中的「投」,與下列哪一個選項中的「投」意思最接近?", options: ["自「投」羅網", "失敗「投」降", "「投」稿校刊", "「投」球姿勢"], answer: 3, 
+                  explanation: "題目中「投」進許願池，是「丟入、扔擲」的動作。<br>④「投」球姿勢的投，也是丟擲的意思，所以最接近。<br>（①進入；②屈服；③寄發文章。）" },
+                { id: 16, category: "語文知識延伸", concept: "詞彙語意", text: "下列哪一個選項,前後詞語的關係和其他選項不同?", options: ["勤奮/懶惰", "快樂/哀傷", "大方/自私", "辛勞/辛苦"], answer: 3, 
+                  explanation: "我們來看看每組詞語的關係：<br>①勤奮相反是懶惰、②快樂相反是哀傷、③大方相反是自私。前三個都是「相反詞」。<br>只有④「辛勞」和「辛苦」意思是相近的，是「相似詞」，所以它和別人不一樣。" },
+                { id: 17, category: "語文知識延伸", concept: "詞彙語意", text: "下列選項中的「壓力」,哪一個的意思與另外三個不同?", options: ["最近的工作「壓力」讓他焦慮不安,因而影響到睡眠品質。", "潛水員在水底受到強大「壓力」,因此移動時會更加困難。", "雖然大學畢業後就有就業「壓力」,但表哥還是樂觀面對。", "適當的學習「壓力」能促使人們進步,進而挑戰自我極限。"], answer: 1, 
+                  explanation: "②水底的「壓力」是指物理上的「水壓」，是真實存在的力量。<br>而①工作、③就業、④學習的「壓力」，都是指人們心裡的負擔、緊張的感受（心理壓力）。所以②的意思不同。" },
+                { id: 18, category: "語文知識延伸", concept: "大意主旨", text: "騎樓下躲雨的人不少,但是大家看到雨不停的下,有的人穿上雨衣,有的人拿出雨傘,一個一個走了,很快就只剩下我一個人。\n上面的句子主要想告訴我們什麼事?", options: ["在騎樓下躲雨的人很少。", "這場雨只有下了一陣子。", "這段期間騎樓下都有人。", "帶雨具的人紛紛的走了。"], answer: 3, 
+                  explanation: "整句話的重點在描述：原本很多人躲雨，但因為雨不停，那些有準備雨衣和雨傘（帶雨具）的人就一個接一個離開了，最後才只剩作者。" },
+                { id: 19, category: "語文知識延伸", concept: "大意主旨", text: "我一直懷疑姊姊有特異功能,很可能是外星人送來地球的密探;外星人把她寄放在媽媽的肚子裡,讓她誕生在我家成了我姊姊。媽媽說姊姊從小就不愛哭,乖乖的吃飽睡、睡飽吃,可見她有多奇特;而每次當媽媽拿我跟姊姊比較後,也讓我更加懷疑我們是不是親生姊妹。\n下列哪一個選項最能代表本段文字的大意?", options: ["媽媽比較喜歡姊姊。", "作者覺得姊姊很奇特。", "作者的姊姊是個外星人。", "作者的姊姊是外星人的密探。"], answer: 1, 
+                  explanation: "這段文章用誇張、有趣的方式（懷疑是外星人密探），來表達作者覺得姊姊不哭不鬧的個性真的太「奇特」了！姊姊並不是真的外星人，所以選②最適合概括全文。" },
+                { id: 20, category: "語文知識延伸", concept: "大意主旨", text: "天分高的人如果太懶惰,而不努力發揮他的才能,也難有什麼大成就,反而不如那些天分低卻努力的人。\n下列哪一個選項的敘述最能代表這句話的意思?", options: ["只要天分足夠,早晚都會成功。", "沒有失敗經驗的人,不會成功。", "擁有天賦的人也需要勤奮努力。", "所有事情都需要付出才有收穫。"], answer: 2, 
+                  explanation: "這句話在比較「天分」跟「努力」。它強調就算天分再高，如果不努力還是沒用。所以這句話是要告訴我們：「擁有天賦的人也需要勤奮努力」，選③最精確。" },
+                { id: 21, category: "語文知識延伸", concept: "大意主旨", text: "早年,臺灣是個農業社會。那是個沒有電視,收音機又不普遍的時代,書報雜誌也不多;教育更不普遍,一般人知識水準也都不高。那個時代,要傳播一個消息,無法透過傳播媒體,只能靠人工沿街喊叫宣告,因此「打鑼的」成為地方上的報馬仔。鏘鏘鏘,街上只要聽到鑼聲響起,就是打鑼的有事要宣布了。\n下列哪一個選項最能代表本段文字的涵義?", options: ["臺灣早期的傳播科技落後世界各國。", "農業社會導致一般人知識水準不高。", "打鑼的人在當時負責傳遞重要消息。", "電視的發明可以讓訊息傳遞更便利。"], answer: 2, 
+                  explanation: "這段文字前半部在鋪陳早年沒有媒體的背景，後半部則帶出文章的主角：「因此『打鑼的』成為地方上的報馬仔...負責宣布事情」。所以整段文字主要在介紹打鑼的人在當時扮演傳遞消息的重要角色。" },
+                
+                // Specific text questions (Text 1)
+                { id: 22, category: "閱讀理解", concept: "訊息推論", text: "依據《我懂你》文章內容,婷如剛轉學來的時候,為什麼會感到不安?", options: ["說話太小聲大家都沒聽到。", "對新學校的環境感到陌生。", "不喜歡別人一直盯著她看。", "小玲還沒有主動跟她說話。"], answer: 1, 
+                  explanation: "請回到文章第二段尋找答案！文中明確寫著：「婷如剛來新學校,對一切都感到很陌生,也不太知道該說什麼、做什麼...」" },
+                { id: 23, category: "閱讀理解", concept: "訊息推論", text: "依據《我懂你》文章內容,作者為什麼要將標題訂做「我懂你」?", options: ["回想起與婷如相似的處境。", "在觀察中知道婷如的背景。", "感謝詩涵伸出友誼的雙手。", "自己也喜歡坐在角落沉思。"], answer: 0, 
+                  explanation: "文章第四段提到，作者看見婷如孤單的樣子，就「不禁想起自己剛上學時的情景」，因為自己也曾經因為不熟悉環境而害怕，這份「我也曾經歷過、我懂妳的感受」正是標題的由來。" },
+                { id: 24, category: "閱讀理解", concept: "大意主旨", text: "依據《我懂你》文章內容,本文要傳達的主旨是什麼?", options: ["我們不應該讓新同學孤單。", "到新環境要主動接觸同學。", "關懷與行動能帶給人溫暖。", "人面對新環境都會很不安。"], answer: 2, 
+                  explanation: "故事的核心在於作者因為「懂」那種不安，所以鼓起勇氣主動對婷如釋出善意（行動），最終讓婷如展露笑容。這告訴我們，一點點的關懷和陪伴，就能給人帶來極大的溫暖和改變。" },
+                
+                // Text 2
+                { id: 25, category: "閱讀理解", concept: "訊息推論", text: "《歡迎,請上船》中，小鴨鴨出現在水溝裡的原因是什麼?", options: ["因為汽車急煞而掉出紙箱。", "為了要跟大青蛙比賽潛水。", "跟小螞蟻約好載他們回家。", "想證明自己有獨特的能力。"], answer: 0, 
+                  explanation: "文章的第二段清楚交代了原因：「小狗從車子前面衝過。小威爸爸急忙踩煞車...黃色小鴨鴨卻滾下來,滾進水溝裡。」" },
+                { id: 26, category: "閱讀理解", concept: "訊息推論", text: "下列哪一個選項符合小鴨鴨的心境歷程的轉變?", options: ["害羞 害怕→慌張→好奇", "害羞→慌張→害怕→好奇", "好奇→難過→慌張→自信", "好奇→慌張→難過→自信"], answer: 3, 
+                  explanation: "我們跟著小鴨鴨的心情走：<br>1. 剛探出頭「東看西看」是【好奇】。<br>2. 掉進黑漆漆水溝裡「大叫」是【慌張】。<br>3. 被老鼠踢開「眼角含著淚水」是【難過】。<br>4. 最後變成小船「驕傲的說：歡迎上船」是【自信】。因此選④。" },
+                { id: 27, category: "閱讀理解", concept: "大意主旨", text: "這個故事主要想告訴我們什麼想法?", options: ["每個人都有屬於自己的獨特優點。", "在人生的道路上必須要找到伙伴。", "任何人都必須要培養自己的專長。", "所有人都不應該取笑別人的短處。"], answer: 0, 
+                  explanation: "故事中的小鴨鴨不會潛水、不能吃，一開始被嘲笑沒用處；但他卻能漂浮在水上當一艘船，幫助了小螞蟻和小蜜蜂。「天生我材必有用」，每個人都有屬於自己的獨特優點和價值！" },
+                
+                // Text 3
+                { id: 28, category: "閱讀理解", concept: "訊息推論", text: "依據《海馬》文章內容,下列哪一個選項是正確的?", options: ["海馬有長長的嘴和長長的尾巴。", "海馬靠著尾鰭擺動來游泳前進。", "海馬只有在獵捕獵物時，才會變化體色。", "海馬消化功能很好，所以一天吃很多餐。"], answer: 0, 
+                  explanation: "讓我們用刪去法來檢查：<br>✅ ① 文章第一段說海馬「有長長的嘴跟尾巴」。<br>❌ ② 文章說海馬「沒有尾鰭」，是靠背鰭前進。<br>❌ ③ 變體色是為了「躲避天敵和獵捕獵物」，不只有獵捕時。<br>❌ ④ 文章說海馬「消化功能比較不好」，所以才要吃很多餐。" },
+                { id: 29, category: "閱讀理解", concept: "訊息推論", text: "文章中提到海馬擁有一身好本領，下列哪一項本領無法幫助海馬避開危險？", options: ["色素細胞能變色", "長嘴巴的強吸力", "眼珠能分開轉動", "可捲曲的長尾巴"], answer: 1, 
+                  explanation: "題目問的是「無法」避開危險的本領：<br>變色（躲避天敵）、眼珠轉動（注意周遭安全）、長尾巴（纏住海草不被沖走）都是為了安全。<br>只有②長嘴巴的強吸力，是為了「吸食獵物吃飯」用的，和避開危險無關喔！" },
+                { id: 30, category: "閱讀理解", concept: "大意主旨", text: "我們如果要幫這篇文章訂題目，下列哪一個選項最合適？", options: ["海馬的運動習性", "海馬的生存方式", "海馬的生活環境", "海馬的飲食習慣"], answer: 1, 
+                  explanation: "這篇文章介紹了海馬怎麼游泳(運動)、怎麼變色隱藏、怎麼用尾巴固定、怎麼吃東西(飲食)，以及眼睛的功能。這些全部加起來，就是在介紹海馬在大海中的「生存方式」，選②最能涵蓋全文。" }
+            ]
+        };
+
+        // --- STATE MANAGEMENT ---
+        let currentTab = 'dashboard';
+        let currentConceptFilter = 'all';
+        let currentTextId = 'text-1';
+
+        // --- DOM ELEMENTS & INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            initFilters();
+            renderQuestions();
+            initReadingTabs();
+            renderReadingText();
+            updateScoreBoard();
+            initBackToTopButton();
+        });
+
+        // --- LOGIC: Back to Top Button ---
+        function initBackToTopButton() {
+            const btn = document.getElementById('backToTopBtn');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    btn.classList.remove('opacity-0', 'pointer-events-none');
+                    btn.classList.add('opacity-100');
+                } else {
+                    btn.classList.remove('opacity-100');
+                    btn.classList.add('opacity-0', 'pointer-events-none');
+                }
+            });
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- UI LOGIC: Tabs ---
+        function switchTab(tabId) {
+            ['dashboard', 'explorer', 'reading'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                const sec = document.getElementById(`sec-${id}`);
+                if (id === tabId) {
+                    btn.className = "px-6 py-2 text-xl font-bold rounded-lg bg-white shadow-md text-primary transition-colors";
+                    sec.classList.remove('hidden');
+                    sec.classList.add('block');
+                } else {
+                    btn.className = "px-6 py-2 text-xl font-bold rounded-lg text-textMuted hover:text-textMain hover:bg-stone-200 transition-colors";
+                    sec.classList.remove('block');
+                    sec.classList.add('hidden');
+                }
+            });
+            currentTab = tabId;
+            scrollToTop();
+        }
+
+        // --- LOGIC: Score Board ---
+        function updateScoreBoard() {
+            const answeredIds = Object.keys(testData.answeredState);
+            const totalAnswered = answeredIds.length;
+            const correctCount = answeredIds.filter(id => testData.answeredState[id]).length;
+            
+            // 計算正確率 (避免除以 0)
+            let percent = 0;
+            if (totalAnswered > 0) {
+                percent = Math.round((correctCount / totalAnswered) * 100);
+            }
+            
+            document.getElementById('score-correct').textContent = correctCount;
+            document.getElementById('score-total').textContent = totalAnswered;
+            document.getElementById('score-percent').textContent = percent + "%";
+            
+            const elBoard = document.getElementById('score-board');
+            elBoard.classList.remove('score-animate');
+            void elBoard.offsetWidth; // trigger reflow
+            elBoard.classList.add('score-animate');
+        }
+
+        // --- LOGIC: Dashboard Charts ---
+        function initCharts() {
+            Chart.defaults.font.family = "'Iansui', 'Microsoft JhengHei', sans-serif";
+            Chart.defaults.font.size = 20; 
+            
+            const ctxDomain = document.getElementById('domainChart').getContext('2d');
+            new Chart(ctxDomain, {
+                type: 'doughnut',
+                data: {
+                    labels: ['語文知識題', '閱讀理解題'],
+                    datasets: [{
+                        data: [testData.overview.knowledge, testData.overview.reading],
+                        backgroundColor: ['#0d9488', '#ea580c'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '65%'
+                }
+            });
+
+            const ctxConcept = document.getElementById('conceptChart').getContext('2d');
+            const conceptLabels = Object.keys(testData.concepts);
+            const conceptData = Object.values(testData.concepts);
+            new Chart(ctxConcept, {
+                type: 'bar',
+                data: {
+                    labels: conceptLabels,
+                    datasets: [{ label: '題數', data: conceptData, backgroundColor: '#0d9488', borderRadius: 8 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 2 } },
+                        x: {
+                            ticks: {
+                                callback: function(val, index) {
+                                    let label = this.getLabelForValue(val);
+                                    return label.length > 5 ? label.substring(0,5) + '..' : label;
+                                }
+                            }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // --- LOGIC: Explorer ---
+        function initFilters() {
+            const container = document.getElementById('filter-container');
+            const concepts = ["全部", "字音字形", "詞彙語意", "句型標點", "修辭寫作", "大意主旨", "訊息推論"];
+            
+            concepts.forEach(concept => {
+                const btn = document.createElement('button');
+                btn.textContent = concept;
+                btn.className = `px-5 py-2 text-xl rounded-full border-2 transition-colors ${concept === '全部' ? 'bg-primary text-white border-primary shadow-sm font-bold' : 'bg-white text-textMuted border-stone-200 hover:border-primary hover:text-primary font-bold'}`;
+                btn.onclick = () => filterQuestions(concept, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function filterQuestions(concept, clickedBtn) {
+            currentConceptFilter = concept === '全部' ? 'all' : concept;
+            const buttons = document.getElementById('filter-container').querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.className = `px-5 py-2 text-xl rounded-full border-2 transition-colors ${btn === clickedBtn ? 'bg-primary text-white border-primary shadow-sm font-bold' : 'bg-white text-textMuted border-stone-200 hover:border-primary hover:text-primary font-bold'}`;
+            });
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const grid = document.getElementById('questions-grid');
+            grid.innerHTML = '';
+            
+            // Explorer 區塊顯示 Q1~Q21
+            const filtered = testData.questions.filter(q => q.id <= 21 && (currentConceptFilter === 'all' || q.concept === currentConceptFilter));
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p class="text-textMuted col-span-full py-12 text-center text-2xl font-bold bg-white rounded-xl border border-stone-100">此分類暫無題目。</p>';
+                return;
+            }
+
+            filtered.forEach(q => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-8 rounded-2xl shadow-sm border border-stone-200 interactive-card flex flex-col h-full';
+                const answered = testData.answeredState.hasOwnProperty(q.id);
+                
+                let optionsHtml = q.options.map((opt, i) => {
+                    let btnClass = "w-full text-left flex items-start gap-4 p-5 rounded-2xl border-2 transition-colors mb-4 ";
+                    let spanClass = "font-black shrink-0 w-12 h-12 flex items-center justify-center rounded-full text-2xl transition-colors ";
+                    
+                    const isUserChoice = (testData.userChoices[q.id] === i);
+
+                    if (testData.isSubmitted) {
+                        // 交卷後：顯示對錯
+                        if (i === q.answer) {
+                            btnClass += "border-teal-500 bg-teal-50 text-teal-900 shadow-sm";
+                            spanClass += "bg-teal-500 text-white";
+                        } else if (isUserChoice && i !== q.answer) {
+                            btnClass += "border-red-500 bg-red-50 text-red-900 shadow-sm";
+                            spanClass += "bg-red-500 text-white";
+                        } else {
+                            btnClass += "border-stone-200 bg-white opacity-40 cursor-default";
+                            spanClass += "bg-stone-100";
+                        }
+                        return `<button disabled class="${btnClass}"><span class="${spanClass}">${i+1}</span><span class="mt-1.5 text-2xl leading-relaxed">${opt}</span></button>`;
+                    } else {
+                        // 交卷前：顯示選取狀態 (淺藍色)
+                        if (isUserChoice) {
+                            btnClass += "border-blue-500 bg-blue-50 text-blue-900 shadow-sm";
+                            spanClass += "bg-blue-500 text-white";
+                        } else {
+                            btnClass += "border-stone-200 bg-white hover:bg-stone-50 cursor-pointer hover:border-stone-300";
+                            spanClass += "bg-stone-100 text-stone-600";
+                        }
+                        return `<button id="opt-exp-${q.id}-${i}" onclick="selectOption(${q.id}, ${i}, 'exp')" class="${btnClass}"><span class="${spanClass}">${i+1}</span><span class="mt-1.5 text-2xl leading-relaxed">${opt}</span></button>`;
+                    }
+                }).join('');
+
+                let ansHtml = '';
+                if (testData.isSubmitted) {
+                    const isCorrect = testData.answeredState[q.id];
+                    const headerHtml = isCorrect
+                        ? `<div class="font-bold text-teal-700 mb-4 flex items-center gap-3"><span class="text-4xl">✅</span> <span class="text-3xl">答對了！太棒了！</span></div>`
+                        : `<div class="font-bold text-red-700 mb-4 flex items-center gap-3"><span class="text-4xl">❌</span> <span class="text-3xl">答錯了，正確答案是 ${q.answer + 1}</span></div>`;
+                    ansHtml = `
+                        <div class="mt-6 p-6 bg-stone-50 rounded-2xl border-2 border-stone-200 block shadow-inner">
+                            ${headerHtml}
+                            <div class="text-stone-800 leading-relaxed text-2xl mt-4 pt-4 border-t-2 border-stone-200"><strong class="text-primary text-3xl mr-2">【詳解】</strong><br>${q.explanation}</div>
+                        </div>`;
+                } else {
+                    ansHtml = `<div id="ans-exp-${q.id}" class="hidden mt-6 p-6 bg-stone-50 rounded-2xl border-2 border-stone-200 shadow-inner"></div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-6 border-b border-stone-100 pb-4">
+                        <span class="inline-block px-5 py-2 bg-primaryLight text-primary text-2xl font-black rounded-lg shadow-sm border border-teal-200">第 ${q.id} 題</span>
+                        <span class="text-stone-500 bg-stone-100 px-4 py-1.5 rounded-lg text-xl font-bold">${q.concept}</span>
+                    </div>
+                    <p class="font-bold text-textMain mb-8 whitespace-pre-line text-3xl leading-relaxed tracking-wide">${q.text}</p>
+                    <div class="mb-2 flex-grow">${optionsHtml}</div>
+                    ${ansHtml}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- LOGIC: Reading Texts ---
+        function initReadingTabs() {
+            const tabsContainer = document.getElementById('text-tabs');
+            tabsContainer.innerHTML = '';
+            testData.texts.forEach((text, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = text.title;
+                btn.className = `shrink-0 px-8 h-14 flex items-center justify-center text-2xl leading-none font-black rounded-t-xl transition-colors ${index === 0 ? 'bg-stone-900 text-cyan-300' : 'bg-stone-200 text-stone-500 hover:bg-stone-300 hover:text-stone-700'}`;
+                btn.onclick = () => selectReadingText(text.id, btn);
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function selectReadingText(textId, clickedBtn) {
+            currentTextId = textId;
+            const tabs = document.getElementById('text-tabs').querySelectorAll('button');
+            tabs.forEach(btn => {
+    if (btn === clickedBtn) {
+        // 選中狀態：黑底 (bg-stone-900)、淺藍字 (text-cyan-300)
+        btn.className = 'shrink-0 px-8 h-14 flex items-center justify-center text-2xl leading-none font-black rounded-t-xl transition-colors bg-stone-900 text-cyan-300';
+    } else {
+        // 未選中狀態：灰底、深灰字
+        btn.className = 'shrink-0 px-8 h-14 flex items-center justify-center text-2xl leading-none font-black rounded-t-xl transition-colors bg-stone-200 text-stone-500 hover:bg-stone-300 hover:text-stone-700';
+    }
+});            renderReadingText();
+        }
+
+        function renderReadingText() {
+            const textData = testData.texts.find(t => t.id === currentTextId);
+            if (!textData) return;
+
+            const contentDiv = document.getElementById('text-content');
+            contentDiv.innerHTML = `
+                <span class="font-bold text-accent bg-orange-100 border-2 border-orange-200 px-4 py-1.5 rounded-xl inline-block mb-6 text-xl tracking-wider">${textData.type}</span>
+                <div class="text-stone-800 leading-loose text-[26px] tracking-wide">${textData.content}</div>
+            `;
+
+            const qsDiv = document.getElementById('text-questions');
+            qsDiv.innerHTML = '<h4 class="font-bold text-4xl mb-8 flex items-center gap-3 text-stone-700 px-2 pb-4 border-b-2 border-stone-200"><span>📝</span> 相關試題</h4>';
+            
+            const relatedQs = testData.questions.filter(q => textData.questions.includes(q.id));
+            
+            relatedQs.forEach(q => {
+                const qCard = document.createElement('div');
+                qCard.className = 'bg-white p-8 rounded-2xl shadow-sm border-2 border-stone-200 mb-8';
+                const answered = testData.answeredState.hasOwnProperty(q.id);
+
+                let optionsHtml = q.options.map((opt, i) => {
+                    let btnClass = "w-full text-left flex items-start gap-4 p-5 rounded-2xl border-2 transition-colors mb-4 ";
+                    let spanClass = "font-black shrink-0 w-12 h-12 flex items-center justify-center rounded-full text-2xl transition-colors ";
+                    
+                    const isUserChoice = (testData.userChoices[q.id] === i);
+
+                    if (testData.isSubmitted) {
+                        if (i === q.answer) {
+                            btnClass += "border-teal-500 bg-teal-50 text-teal-900 shadow-sm";
+                            spanClass += "bg-teal-500 text-white";
+                        } else if (isUserChoice && i !== q.answer) {
+                            btnClass += "border-red-500 bg-red-50 text-red-900 shadow-sm";
+                            spanClass += "bg-red-500 text-white";
+                        } else {
+                            btnClass += "border-stone-200 bg-white opacity-40 cursor-default";
+                            spanClass += "bg-stone-100";
+                        }
+                        return `<button disabled class="${btnClass}"><span class="${spanClass}">${i+1}</span><span class="mt-1.5 text-2xl leading-relaxed">${opt}</span></button>`;
+                    } else {
+                        if (isUserChoice) {
+                            btnClass += "border-blue-500 bg-blue-50 text-blue-900 shadow-sm";
+                            spanClass += "bg-blue-500 text-white";
+                        } else {
+                            btnClass += "border-stone-200 bg-white hover:bg-stone-50 cursor-pointer hover:border-stone-300";
+                            spanClass += "bg-stone-100 text-stone-600";
+                        }
+                        return `<button id="opt-read-${q.id}-${i}" onclick="selectOption(${q.id}, ${i}, 'read')" class="${btnClass}"><span class="${spanClass}">${i+1}</span><span class="mt-1.5 text-2xl leading-relaxed">${opt}</span></button>`;
+                    }
+                }).join('');
+
+                let ansHtml = '';
+                if (testData.isSubmitted) {
+                    const isCorrect = testData.answeredState[q.id];
+                    const headerHtml = isCorrect
+                        ? `<div class="font-bold text-teal-700 mb-4 flex items-center gap-3"><span class="text-4xl">✅</span> <span class="text-3xl">答對了！</span></div>`
+                        : `<div class="font-bold text-red-700 mb-4 flex items-center gap-3"><span class="text-4xl">❌</span> <span class="text-3xl">正確答案是 ${q.answer + 1}</span></div>`;
+                    ansHtml = `<div class="mt-6 p-6 bg-stone-50 rounded-2xl border-2 border-stone-200 block shadow-inner">${headerHtml}<div class="text-stone-800 leading-relaxed text-2xl mt-4 pt-4 border-t-2 border-stone-200"><strong class="text-primary text-3xl mr-2">【詳解】</strong><br>${q.explanation}</div></div>`;
+                } else {
+                    ansHtml = `<div id="ans-read-${q.id}" class="hidden mt-6 p-6 bg-stone-50 rounded-2xl border-2 border-stone-200 shadow-inner"></div>`;
+                }
+
+                qCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-6 border-b border-stone-100 pb-4">
+                        <span class="font-black text-primary text-3xl">第 ${q.id} 題</span>
+                        <span class="text-stone-500 bg-stone-100 px-4 py-2 rounded-xl font-bold text-xl">${q.concept}</span>
+                    </div>
+                    <p class="font-bold text-textMain mb-8 text-3xl leading-relaxed whitespace-pre-line tracking-wide">${q.text}</p>
+                    <div class="mb-2">${optionsHtml}</div>
+                    ${ansHtml}
+                `;
+                qsDiv.appendChild(qCard);
+            });
+        }
+
+        // --- Core Interaction Function ---
+        // --- Core Interaction Function ---
+        function selectOption(qId, selectedIdx, context) {
+            // 若已交卷，禁止再修改
+            if (testData.isSubmitted) return;
+
+            const q = testData.questions.find(x => x.id === qId);
+            if (!q) return;
+
+            // 1. 紀錄使用者的選擇
+            testData.userChoices[qId] = selectedIdx;
+
+            // 2. 更新按鈕樣式：標示為「已選取」(藍色外觀)，但不顯示對錯
+            for (let i = 0; i < q.options.length; i++) {
+                const btn = document.getElementById(`opt-${context}-${qId}-${i}`);
+                if (!btn) continue;
+                
+                const numSpan = btn.querySelector('span');
+
+                // 恢復預設樣式 (清除之前點擊的痕跡)
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-900', 'shadow-sm');
+                numSpan.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('border-stone-200', 'bg-white', 'text-textMain');
+                numSpan.classList.add('bg-stone-100', 'text-stone-600');
+
+                // 套用選取樣式
+                if (i === selectedIdx) {
+                    btn.classList.remove('border-stone-200', 'bg-white', 'text-textMain');
+                    btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-900', 'shadow-sm');
+                    numSpan.classList.remove('bg-stone-100', 'text-stone-600');
+                    numSpan.classList.add('bg-blue-500', 'text-white');
+                }
+            }
+        }
+
+        // --- 新增：交卷與結算功能 ---
+        // --- 新增：交卷與結算功能 (包含傳送至 Google 試算表) ---
+        // --- 修改後的交卷與結算功能 ---
+        function submitQuiz() {
+            if (testData.isSubmitted) return;
+
+            const seatNumberInput = document.getElementById('student-number');
+            if (!seatNumberInput) {
+                alert("找不到座號輸入框！");
+                return;
+            }
+            const seatNumber = seatNumberInput.value.trim();
+            if (!seatNumber) {
+                alert("請先輸入您的「座號」，才能交卷喔！");
+                seatNumberInput.focus();
+                return;
+            }
+
+            const answeredCount = Object.keys(testData.userChoices).length;
+            if (answeredCount < 30) {
+                if (!confirm(`您目前只作答了 ${answeredCount} 題，還有 ${30 - answeredCount} 題未完成，確定要提早交卷嗎？`)) {
+                    return;
+                }
+            }
+
+            testData.isSubmitted = true;
+            let correctCount = 0;
+            let qResults = []; 
+
+            // 結算 30 題的對錯
+            for (let i = 1; i <= 30; i++) {
+                const q = testData.questions.find(x => x.id === i);
+                if (q) {
+                    const userAns = testData.userChoices[q.id];
+                    if (userAns !== undefined && userAns === q.answer) {
+                        qResults.push(1);
+                        correctCount++;
+                        testData.answeredState[q.id] = true;
+                    } else {
+                        qResults.push(0);
+                        testData.answeredState[q.id] = false;
+                    }
+                } else {
+                    qResults.push(0);
+                }
+            }
+
+            // --- 這裡使用您提到的邏輯計算百分制分數 ---
+            // 因為是正式交卷，我們以總題數 30 題為基準來算正確率
+            const finalScore = Math.round((correctCount / 30) * 100);
+
+            document.getElementById('btn-submit').style.display = 'none';
+            seatNumberInput.disabled = true;
+            seatNumberInput.classList.add('bg-stone-200');
+
+            // --- 準備送到 Google 試算表的資料 ---
+            const payload = {
+                seatNumber: seatNumber,
+                score: finalScore,      // 這裡改傳送 finalScore (正確率)，而不是 correctCount
+                results: qResults 
+            };
+
+            if (typeof google !== 'undefined' && google.script) {
+                google.script.run
+                    .withSuccessHandler(function() { console.log("成績送出成功！"); })
+                    .saveScore(payload);
+            }
+
+            // 更新畫面 (這會觸發您原本寫好的 updateScoreBoard)
+            updateScoreBoard();
+            renderQuestions();
+            renderReadingText();
+
+            // 修改這裡的提示文字，改顯示 finalScore
+            alert(`交卷完成！您的成績是 ${finalScore} 分。\n(答對題數：${correctCount} 題)`);
+
+// 在原本的 render 之後加上這一行
+    renderWrongAnswerNav();
+            scrollToTop();
+        }
+// 生成錯題導覽按鈕
+function renderWrongAnswerNav() {
+    const navDiv = document.getElementById('wrong-answer-nav');
+    const container = document.getElementById('wrong-buttons-container');
+    container.innerHTML = ''; // 清空舊內容
+
+    // 找出所有錯題的 ID
+    const wrongIds = Object.keys(testData.answeredState)
+                           .filter(id => testData.answeredState[id] === false)
+                           .map(Number)
+                           .sort((a, b) => a - b);
+
+    if (wrongIds.length === 0) {
+        container.innerHTML = '<p class="text-teal-600 text-xl font-bold">太棒了！全對喔！保持下去！✨</p>';
+    } else {
+        wrongIds.forEach(id => {
+            const btn = document.createElement('button');
+            btn.className = "w-14 h-14 bg-red-50 border-2 border-red-200 text-red-600 rounded-xl font-bold text-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center";
+            btn.textContent = id;
+            btn.onclick = () => scrollToQuestion(id);
+            container.appendChild(btn);
+        });
+    }
+    navDiv.classList.remove('hidden'); // 顯示此區塊
+}
+
+// 平滑捲動到指定題目 (精準切換文章版)
+// 平滑捲動到指定題目 (完美對齊頂部版)
+function scrollToQuestion(qId) {
+    const numericId = Number(qId);
+    
+    // --- 1. 靜默切換大分頁 ---
+    let tabId = numericId <= 21 ? 'explorer' : 'reading';
+    ['dashboard', 'explorer', 'reading'].forEach(id => {
+        const btn = document.getElementById(`nav-${id}`);
+        const sec = document.getElementById(`sec-${id}`);
+        if (id === tabId) {
+            if(btn) btn.className = "px-6 py-2 text-xl font-bold rounded-lg bg-white shadow-md text-primary transition-colors";
+            if(sec) { sec.classList.remove('hidden'); sec.classList.add('block'); }
+        } else {
+            if(btn) btn.className = "px-6 py-2 text-xl font-bold rounded-lg text-textMuted hover:text-textMain hover:bg-stone-200 transition-colors";
+            if(sec) { sec.classList.remove('block'); sec.classList.add('hidden'); }
+        }
+    });
+    currentTab = tabId;
+
+    // --- 2. 確保題目與文章被正確繪製 ---
+    if (numericId <= 21) {
+        currentConceptFilter = 'all';
+        const filterContainer = document.getElementById('filter-container');
+        if (filterContainer) {
+            const filterBtns = filterContainer.querySelectorAll('button');
+            filterBtns.forEach(btn => {
+                if (btn.textContent === '全部') {
+                    btn.className = 'px-5 py-2 text-xl rounded-full border-2 transition-colors bg-primary text-white border-primary shadow-sm font-bold';
+                } else if (btn.textContent !== '篩選題型：') {
+                    btn.className = 'px-5 py-2 text-xl rounded-full border-2 transition-colors bg-white text-textMuted border-stone-200 hover:border-primary hover:text-primary font-bold';
+                }
+            });
+        }
+        if (typeof renderQuestions === 'function') renderQuestions(); 
+        
+    } else {
+        const targetText = testData.texts.find(t => t.questions.includes(numericId));
+        if (targetText) {
+            currentTextId = targetText.id;
+            const tabs = document.getElementById('text-tabs');
+            if (tabs) {
+                const tabBtns = tabs.querySelectorAll('button');
+                tabBtns.forEach(btn => {
+                    if (btn.textContent === targetText.title) {
+                        btn.className = 'shrink-0 px-8 h-14 flex items-center justify-center text-2xl leading-none font-black rounded-t-xl transition-colors bg-stone-900 text-cyan-300';
+                    } else {
+                        btn.className = 'shrink-0 px-8 h-14 flex items-center justify-center text-2xl leading-none font-black rounded-t-xl transition-colors bg-stone-200 text-stone-500 hover:bg-stone-300 hover:text-stone-700';
+                    }
+                });
+            }
+            if (typeof renderReadingText === 'function') renderReadingText(); 
+        }
+    }
+
+    // --- 3. 精準尋找與對齊頂部 ---
+    setTimeout(() => {
+        let targetElement = null;
+        
+        const allElements = document.querySelectorAll('span, h3, div, p');
+        for (let el of allElements) {
+            if (el.textContent.trim() === `第 ${numericId} 題`) {
+                targetElement = el.closest('.interactive-card') || el.closest('.bg-white') || el.closest('.bg-stone-50') || el.parentElement;
+                break;
+            }
+        }
+
+        if (targetElement) {
+            // 💡 關鍵修正 1：加上 scrollMarginTop，預留頂部空間，避免被上方的計分板或導覽列蓋住
+            targetElement.style.scrollMarginTop = "0px";
+            
+            // 💡 關鍵修正 2：改為 block: 'start'，讓題目的「最上緣」對齊畫面，這樣孩子就會從題目開始看
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // 閃紅光動畫
+            const originalBg = targetElement.style.backgroundColor;
+            targetElement.style.transition = "background-color 0.4s ease";
+            targetElement.style.backgroundColor = "#fee2e2"; 
+            
+            setTimeout(() => {
+                targetElement.style.backgroundColor = originalBg; 
+            }, 2000);
+            
+        } else {
+            alert(`糟糕，找不到第 ${numericId} 題的位置！`);
+        }
+    }, 150); 
+}
+</script>
+</body>
+</html>
