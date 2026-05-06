@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>114年縣市學生學習能力檢測 - 四年級國語文科分析儀表板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* CSS Reset & Basic Layout Constraints */
+        body { margin: 0; padding: 0; background-color: #fafaf9; /* stone-50 */ color: #292524; /* stone-800 */ font-family: 'Helvetica Neue', Helvetica, Arial, 'Microsoft JhengHei', sans-serif; }
+        
+        /* * Chart Container Styling (CRITICAL REQUIREMENT)
+         * Ensures charts are responsive, do not overflow, and maintain proportions.
+         */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        /* Custom Scrollbar for inner content areas */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+
+        /* Transitions for interactive elements */
+        .interactive-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .interactive-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0d9488', /* teal-600 */
+                        primaryLight: '#ccfbf1', /* teal-50 */
+                        accent: '#ea580c', /* orange-600 */
+                        neutralBg: '#fafaf9', /* stone-50 */
+                        neutralCard: '#ffffff',
+                        textMain: '#292524', /* stone-800 */
+                        textMuted: '#78716c', /* stone-500 */
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-neutralBg text-textMain min-h-screen pb-12">
+
+    <!-- Chosen Palette: Warm Neutrals (Stone) with Teal (Primary) and Orange (Accent) highlights -->
+    
+    <!-- Application Structure Plan: 
+         This SPA transforms a linear, static 30-question test booklet into an interactive, analytical dashboard for educators and parents.
+         1. Overview Dashboard: Provides immediate high-level insights (knowledge vs. reading ratio, concept distribution) using charts, allowing users to grasp the test's focus instantly.
+         2. Concept & Question Explorer: Breaks down the linearity. Users can filter questions by specific linguistic concepts (e.g., rhetoric, phonetics), making it task-oriented for targeted review.
+         3. Reading Comprehension Library: Isolates the long-form texts and pairs them interactively with their specific questions, optimizing the reading and answering user flow.
+         This structure is chosen because it facilitates analysis and targeted learning, which is the ultimate goal of reviewing an assessment report. -->
+    
+    <!-- Visualization & Content Choices: 
+         1. Test Composition -> Goal: Compare parts to whole -> Viz: Doughnut Chart (Chart.js Canvas) -> Justification: Clearly shows the 13:17 ratio of knowledge to reading questions.
+         2. Concept Distribution -> Goal: Compare frequencies -> Viz: Bar Chart (Chart.js Canvas) -> Justification: Best for showing which linguistic concepts are tested most heavily.
+         3. Question List -> Goal: Organize & Explore -> Viz: Interactive Grid with Reveal -> Justification: Allows users to test themselves or view answers on demand without cluttering the screen.
+         4. Reading Texts -> Goal: Contextualize -> Viz: Side-by-side Tabbed Layout -> Justification: Keeps the text visible while interacting with the questions, preventing excessive scrolling.
+         CONFIRMING: No SVG or Mermaid used. Used Canvas (Chart.js), Unicode icons, and Tailwind structure. -->
+         
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Header -->
+    <header class="bg-white border-b border-stone-200 shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-primary flex items-center gap-2">
+                    <span class="text-3xl">📊</span> 114年國語文檢測分析儀表板
+                </h1>
+                <p class="text-sm text-textMuted mt-1">四年級學生學習能力檢測 - 互動式試卷解析</p>
+            </div>
+            <nav class="flex gap-2 bg-stone-100 p-1 rounded-lg">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-2 text-sm font-medium rounded-md bg-white shadow text-primary transition-colors">測驗總覽</button>
+                <button onclick="switchTab('explorer')" id="nav-explorer" class="px-4 py-2 text-sm font-medium rounded-md text-textMuted hover:text-textMain transition-colors">概念題庫</button>
+                <button onclick="switchTab('reading')" id="nav-reading" class="px-4 py-2 text-sm font-medium rounded-md text-textMuted hover:text-textMain transition-colors">閱讀文本庫</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+
+        <!-- SECTION 1: Dashboard -->
+        <section id="sec-dashboard" class="block animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-textMain mb-2 flex items-center gap-2">
+                    <span>🎯</span> 測驗架構總覽
+                </h2>
+                <p class="text-textMuted leading-relaxed max-w-4xl">
+                    本區塊旨在提供整份試卷的宏觀數據分析。透過視覺化圖表，教育工作者與家長可以迅速掌握試題在「語文知識」與「閱讀理解」兩大領域的比重，以及各項細部核心概念（如字音字形、修辭、推論等）的分布情況，進而了解本次檢測的命題核心與測驗重點。
+                </p>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-4xl mb-2">📝</span>
+                    <span class="text-3xl font-bold text-primary">30</span>
+                    <span class="text-sm text-textMuted mt-1">總題數</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-4xl mb-2">⏱️</span>
+                    <span class="text-3xl font-bold text-accent">40</span>
+                    <span class="text-sm text-textMuted mt-1">測驗時間 (分鐘)</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-4xl mb-2">🧠</span>
+                    <span class="text-3xl font-bold text-stone-700">13</span>
+                    <span class="text-sm text-textMuted mt-1">語文知識題</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center justify-center">
+                    <span class="text-4xl mb-2">📖</span>
+                    <span class="text-3xl font-bold text-stone-700">17</span>
+                    <span class="text-sm text-textMuted mt-1">閱讀理解題</span>
+                </div>
+            </div>
+
+            <!-- Charts Area -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Chart 1 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-lg font-bold text-center mb-4">領域題型配比</h3>
+                    <div class="chart-container">
+                        <canvas id="domainChart"></canvas>
+                    </div>
+                    <p class="text-center text-sm text-textMuted mt-4">閱讀理解題占比略高於語文知識題，強調素養導向。</p>
+                </div>
+                <!-- Chart 2 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                    <h3 class="text-lg font-bold text-center mb-4">測驗概念分布</h3>
+                    <div class="chart-container">
+                        <canvas id="conceptChart"></canvas>
+                    </div>
+                    <p class="text-center text-sm text-textMuted mt-4">涵蓋字音形、詞彙、句型修辭及深層文意推論等多元指標。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Explorer -->
+        <section id="sec-explorer" class="hidden animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-textMain mb-2 flex items-center gap-2">
+                    <span>🔍</span> 核心概念題庫探索
+                </h2>
+                <p class="text-textMuted leading-relaxed max-w-4xl">
+                    本區塊打破傳統試卷的線性結構，將試題依據「測驗概念」重新分類。使用者可利用下方的過濾標籤，針對特定語文技能（例如：僅查看「修辭」或「多音字」的題目）進行集中檢視與互動練習，有助於針對學生的弱點進行精準複習與邏輯釐清。
+                </p>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100 mb-6">
+                <div class="flex flex-wrap gap-2 items-center" id="filter-container">
+                    <span class="text-sm font-bold mr-2">篩選概念：</span>
+                    <!-- Buttons generated by JS -->
+                </div>
+            </div>
+
+            <!-- Questions Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="questions-grid">
+                <!-- Cards generated by JS -->
+            </div>
+        </section>
+
+        <!-- SECTION 3: Reading Texts -->
+        <section id="sec-reading" class="hidden animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-textMain mb-2 flex items-center gap-2">
+                    <span>📚</span> 互動閱讀文本庫
+                </h2>
+                <p class="text-textMuted leading-relaxed max-w-4xl">
+                    閱讀理解是本次檢測的核心重點。本區塊收錄了試卷中的長篇閱讀文本，並採用左右對照的版面設計。使用者可在左側詳讀文本內容，同時在右側對應作答或檢視相關的測驗題，免去翻閱紙本時來回對照的困擾，提升閱讀與分析的流暢度。
+                </p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6 h-[800px]">
+                <!-- Text Selection & Display (Left) -->
+                <div class="lg:w-1/2 flex flex-col bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
+                    <div class="p-2 bg-stone-100 border-b flex gap-2 overflow-x-auto custom-scrollbar" id="text-tabs">
+                        <!-- Tabs generated by JS -->
+                    </div>
+                    <div class="p-6 overflow-y-auto custom-scrollbar flex-grow bg-white" id="text-content">
+                        <!-- Text generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Associated Questions (Right) -->
+                <div class="lg:w-1/2 flex flex-col bg-stone-100 rounded-xl p-4 overflow-y-auto custom-scrollbar" id="text-questions">
+                    <!-- Questions generated by JS -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JS Logic & Data Storage -->
+    <script>
+        // --- DATA STORAGE ---
+        const testData = {
+            overview: {
+                knowledge: 13,
+                reading: 17
+            },
+            concepts: {
+                "字音與字形": 3,
+                "詞彙與成語": 7,
+                "句型與標點": 3,
+                "修辭與寫作": 4,
+                "閱讀理解與推論": 13
+            },
+            texts: [
+                {
+                    id: "text-1",
+                    title: "勇敢的一步",
+                    type: "記敘文",
+                    content: `小智一直很怕水。每次上游泳課時，他總是緊緊抓著岸邊的欄杆，看著同學們在水裡像魚兒一樣游來游去，心裡既羨慕又害怕。因為他小時候曾經在海邊不小心嗆過水，從那之後，水對他來說就像是一個可怕的怪獸。<br><br>有一天，班上的游泳健將阿愷游到了小智身邊。「小智，你怎麼都不下來玩？」阿愷笑著問。<br>小智低下頭，小聲的說：「我怕水……我怕又會嗆到。」<br><br>阿愷聽了，沒有取笑他，反而站起身來，說：「別怕！這區的水很淺，只到我們的肚子而已。我教你一個好玩的方法，保證不會嗆到。」<br><br>阿愷牽著小智的手，讓他慢慢走下水。接著，阿愷示範了「水母漂」，他深吸一口氣，把頭埋進水裡，身體就像氣球一樣浮了起來。「你看，只要憋氣放鬆，水就會把你托起來哦！你試試看，我會在旁邊拉著你。」<br><br>看著阿愷鼓勵的眼神，小智深吸了一口氣，閉上眼睛，把臉稍微靠近水面。一次、兩次……雖然一開始還是會緊張得馬上抬起頭，但在阿愷耐心的陪伴下，小智終於成功把頭埋進水裡，而且感覺到身體真的輕飄飄的浮了起來！<br><br>「我做到了！阿愷，我浮起來了！」小智開心的在水裡又叫又跳。那天，小智雖然還不會換氣游泳，但他已經不再害怕那隻名叫「水」的怪獸了。`,
+                    questions: [22, 23, 24]
+                },
+                {
+                    id: "text-2",
+                    title: "老雨傘的新朋友",
+                    type: "童話故事",
+                    content: `一陣大風吹過，把李爺爺手裡的舊雨傘吹走了。這把雨傘已經很老了，傘面褪了色，傘骨也稍微有點彎曲。它在空中翻了幾個觔斗，最後掉在公園角落的草地上。<br><br>「唉，我又老又醜，李爺爺一定不會來找我了。」老雨傘孤單的躺在草地上，覺得自己一點用處都沒有了。<br><br>晚上的公園很冷清。突然，一隻小松鼠抱著幾顆橡果跑了過來。牠看到張開一半的老雨傘，高興的說：「哇！這是一個多麼棒的帳篷啊！」小松鼠鑽進傘下，把橡果藏好，安心的睡了一個好覺。老雨傘驚訝的想：「原來，我還可以當帳篷！」<br><br>第二天早晨，下起了一陣大雨。公園的低窪處積了一個大水坑。一陣風把老雨傘吹進了水坑裡。<br>一隻迷路的小青蛙正在水坑邊著急：「糟了，水這麼深，我該怎麼過到對面找媽媽？」<br>小青蛙看到了浮在水面上的老雨傘，立刻跳了上去。「呱！這艘大船真穩！」小青蛙把它當成船，順利的漂到了對岸。<br>老雨傘開心的笑了：「原來，我還可以當一艘船！」<br><br>雨停了，太陽出來了。老雨傘被曬得暖烘烘的。這時，一隻流浪的小花貓輕輕的走到老雨傘底下，伸了個懶腰，舒服的趴了下來：「喵～這裡剛好可以擋住刺眼的陽光，真是個睡午覺的好地方。」<br><br>看著熟睡的小花貓，老雨傘覺得心裡充滿了溫暖。它不再覺得自己是沒有用的舊東西了，因為它在這座公園裡，交到了好多新朋友，也找到了自己全新的價值。`,
+                    questions: [25, 26, 27]
+                },
+                {
+                    id: "text-3",
+                    title: "叢林裡的魔法師——變色龍",
+                    type: "說明文",
+                    content: `在熱帶雨林裡，有一種長相奇特的爬蟲類動物。牠的動作總是很緩慢，有著捲曲的尾巴，還有一雙可以隨意轉動的眼睛。最神奇的是，牠會像變魔術一樣改變身上的顏色。沒錯！牠就是大名鼎鼎的變色龍。<br><br>變色龍是爬蟲綱的動物，主要生活在樹上。為了適應樹上的生活，牠們有許多厲害的生存本領。<br><br><strong>會獨立轉動的眼睛</strong><br>變色龍的雙眼非常特別，左眼和右眼可以分別看向不同的方向！這代表牠可以在不動身體的情況下，同時注意上面的飛鳥和下面的昆蟲，讓牠更容易發現獵物和躲避天敵。<br><br><strong>又長又黏的舌頭</strong><br>雖然變色龍爬得很慢，但牠抓蟲子的速度卻快得驚人。變色龍有一條超級長、帶有黏性的舌頭，長度有時甚至比牠自己的身體還要長。當發現獵物時，牠會瞬間彈出舌頭，準確的黏住昆蟲拉回嘴裡，整個過程只要零點幾秒！<br><br><strong>變色不只是為了隱形</strong><br>很多人以為變色龍改變顏色，只是為了跟背景的樹葉融為一體來隱藏自己。其實，變色龍變色還有其他的目的！牠們的皮膚裡有特殊的色素細胞，當天氣冷的時候，牠們會把顏色變深來吸收太陽的熱量；天氣熱時，則變淺來反光。此外，變色也是牠們溝通和表達情緒的方式，例如生氣或遇到危險時，體色可能會變得非常鮮豔，用來警告敵人。<br><br>看來，動作慢吞吞的變色龍，其實是一位裝備齊全的叢林魔法師呢！`,
+                    questions: [28, 29, 30]
+                }
+            ],
+            questions: [
+                { id: 1, category: "語文知識", concept: "字音分辨", text: "下列哪一個選項，前後「」中的國字讀音相同？", options: ["這個袋子「稍」微有點重。／春天到了，樹上的枝「梢」冒出新芽。", "我們要好好珍「惜」水資源。／這是他童年美好的回「憶」。", "奶奶的個性非常慈「祥」。／這是一篇非常詳「細」的報導。", "弟弟在花園裡「拔」草。／請你把水桶裡的水「撥」開。"], answer: 0, explanation: "①稍(ㄕㄠ)/梢(ㄕㄠ)同音。②惜(ㄒㄧˊ)/憶(ㄧˋ)。③祥(ㄒㄧㄤˊ)/細(ㄒㄧˋ)。④拔(ㄅㄚˊ)/撥(ㄅㄛ)。" },
+                { id: 2, category: "語文知識", concept: "多音字辨識", text: "爸爸明天要去臺中出「差」。\n上面句子的「差」字，與下列哪一個選項的「差」字讀音相同？", options: ["哥哥這次考試的成績很「差」，心情不太好。", "沙漠地區日夜的溫「差」很大。", "幫忙跑腿買東西，真是個輕鬆的苦「差」事。", "這些樹木長得參「差」不齊。"], answer: 2, explanation: "出差的差讀作「ㄔㄞ」。①差(ㄔㄚˋ)。②差(ㄔㄚ)。③差事(ㄔㄞ)。④參差(ㄘ)。" },
+                { id: 3, category: "語文知識", concept: "形近字", text: "探險隊費盡千「 ㄒㄧㄣ」萬苦，終於在山谷裡找到了這片茂「 ㄇㄧˋ」的森林。\n句子中「」內依序應填入什麼字？", options: ["幸／密", "辛／密", "幸／蜜", "辛／蜜"], answer: 1, explanation: "千「辛」萬苦，茂「密」森林。" },
+                { id: 4, category: "語文知識", concept: "詞彙意義", text: "下列哪一個選項，前後詞語意思相同？", options: ["愁眉苦臉／興高采烈", "五顏六色／色彩繽紛", "半途而廢／堅持到底", "狼吞虎嚥／細嚼慢嚥"], answer: 1, explanation: "②皆形容色彩繁多。其餘皆為相反詞。" },
+                { id: 5, category: "語文知識", concept: "成語理解", text: "下列選項的詞語解釋，哪一個正確？", options: ["井底之蛙：比喻見識廣博、聰明的人。", "守株待兔：形容做事情非常勤奮努力。", "畫蛇添足：比喻多此一舉，反而弄巧成拙。", "揠苗助長：指幫助植物快速生長的好方法。"], answer: 2, explanation: "③解釋正確。井底之蛙喻見識狹窄；守株待兔喻妄想不勞而獲；揠苗助長喻為求速成反而害事。" },
+                { id: 6, category: "語文知識", concept: "詞語結構", text: "「輕輕的放下」是由副詞「輕輕的」加上動詞「放下」所組成的詞語。\n請問下列哪一個選項的詞語組成方式與「輕輕的放下」相同？", options: ["溫暖的陽光", "快樂的學校", "昨天的功課", "緊緊的抱住"], answer: 3, explanation: "④「緊緊的」(副詞) + 「抱住」(動詞)。" },
+                { id: 7, category: "語文知識", concept: "句型辨識", text: "哥哥既會打籃球，又會彈鋼琴。\n上面的句子屬於「並列句」，下列哪一個選項也是「並列句」？", options: ["如果明天下雨，我們就不去爬山了。", "雖然他生病了，卻還是堅持來上學。", "妹妹一邊看電視，一邊吃著蘋果。", "因為昨天太晚睡覺，所以他今天遲到了。"], answer: 2, explanation: "③「一邊...一邊...」表示兩個動作同時進行，為並列句。" },
+                { id: 8, category: "語文知識", concept: "刪除冗詞", text: "昨天晚上，這隻可愛的小狗非常十分聽話的守在門口。\n上面的句子應刪除哪一個詞語，才會變得最合理、通順？", options: ["可愛", "十分", "聽話", "門口"], answer: 1, explanation: "「非常」和「十分」意思重複，刪除其一即可通順。" },
+                { id: 9, category: "語文知識", concept: "標點符號", text: "這本書真好看呀 你是在哪裡買的呢\n上面句子的空格裡，按照順序應該填入哪些標點符號？", options: ["， 。", "！ ？", "。 ！", "？ 。"], answer: 1, explanation: "表達讚嘆用驚嘆號「！」，提出疑問用問號「？」。" },
+                { id: 10, category: "語文知識", concept: "修辭技巧", text: "運用「擬人法」，可以讓文句更生動有趣。下列哪一個選項運用了「擬人法」？", options: ["操場上傳來陣陣歡樂的笑聲。", "他的眼睛像星星一樣閃閃發亮。", "春風溫柔的撫摸著我的臉頰。", "弟弟高興得像青蛙一樣跳了起來。"], answer: 2, explanation: "③賦予春風「撫摸」的人類動作，為擬人法。" },
+                { id: 11, category: "語文知識", concept: "寫作結構", text: "下列每個選項都是寫作大綱，哪一個是採用因果式(原因、經過、結果)的結構來安排文章內容？", options: ["走進動物園大門 → 參觀可愛動物區 → 來到猛獸區", "氣溫驟降忘記穿外套 → 不小心感冒發燒 → 乖乖在家休息康復", "媽媽長得很漂亮 → 媽媽很會煮菜 → 媽媽喜歡看書", "西瓜圓圓胖胖的 → 西瓜的果肉是紅色的 → 西瓜吃起來很甜"], answer: 1, explanation: "②呈現了忘記穿外套(因)導致發燒(果)的邏輯。" },
+                { id: 12, category: "語文知識", concept: "修辭技巧", text: "將身體或皮膚接觸事物所得到的感覺描寫出來，就是觸覺摹寫。\n下列哪一個選項運用了觸覺摹寫？", options: ["遠方的山頭覆蓋著一層白雪。", "柔軟的毛毯讓人覺得好溫暖。", "廚房傳來陣陣烤麵包的香氣。", "樹上的小鳥唱著輕快的歌曲。"], answer: 1, explanation: "②「柔軟」、「溫暖」是皮膚接觸的感覺。" },
+                { id: 13, category: "語文知識", concept: "文體辨識", text: "失物招領：本人於今日上午在操場遺失一件藍色外套，若有同學撿到，請交至學務處，非常感謝！\n上面的文本，屬於下列哪一種文體？", options: ["說明文", "記敘文", "抒情文", "應用文"], answer: 3, explanation: "啟事、便條等具實用目的之文書皆屬應用文。" },
+                
+                // Reading Comprehension Sample Questions
+                { id: 18, category: "閱讀理解", concept: "大意摘要", text: "下課鐘聲一響，原本安靜的教室瞬間熱鬧起來。有人跑到操場打球，有人在走廊上聊天，也有人留在座位上畫畫，大家都把握這短暫的休息時間。\n上面的句子主要想告訴我們什麼事？", options: ["下課時所有人都去操場了。", "教室在下課時非常安靜。", "同學們下課時有各種不同的活動。", "大家都不喜歡下課時間。"], answer: 2, explanation: "段落描述了打球、聊天、畫畫等多種活動。" },
+                { id: 20, category: "閱讀理解", concept: "推論寓意", text: "「失敗為成功之母。」\n下列哪一個選項的敘述最能代表這句話的意思？", options: ["成功的人從來不會經歷失敗。", "母親總是會幫助我們獲得成功。", "只要失敗過一次，以後就一定會成功。", "從失敗中記取教訓，是邁向成功的基礎。"], answer: 3, explanation: "名言寓意指失敗經驗能孕育未來的成功。" },
+                
+                // Specific text questions
+                { id: 22, category: "閱讀理解", concept: "提取訊息", text: "依據文章內容，小智一開始為什麼不敢下水游泳？", options: ["他覺得游泳池的水太冷了。", "他討厭班上的游泳健將阿愷。", "他小時候曾經在海邊嗆過水。", "他沒有帶適合的游泳圈。"], answer: 2, explanation: "文中明確提到「因為他小時候曾經在海邊不小心嗆過水」。" },
+                { id: 23, category: "閱讀理解", concept: "文意推論", text: "依據文章內容，作者為什麼要將標題訂做「勇敢的一步」？", options: ["小智學會了在水底勇敢的走路。", "阿愷勇敢的保護了小智不被欺負。", "說明游泳是一項需要勇氣的危險運動。", "小智克服了心中的恐懼，願意下水嘗試。"], answer: 3, explanation: "標題象徵小智跨出心理障礙，嘗試下水的勇氣。" },
+                { id: 24, category: "閱讀理解", concept: "統整主旨", text: "依據文章內容，本文要傳達的主旨是什麼？", options: ["朋友的鼓勵與陪伴能帶來克服困難的力量。", "每個人都應該從小學會各種游泳技巧。", "遇到害怕的事情，只要躲開就不會受傷。", "學習游泳一定要找最厲害的教練來教。"], answer: 0, explanation: "故事核心在於阿愷的鼓勵幫助小智克服恐水症。" },
+                
+                { id: 25, category: "閱讀理解", concept: "提取訊息", text: "老雨傘一開始會出現在公園草地上的原因是什麼？", options: ["被李爺爺故意丟棄在公園。", "為了要跟小松鼠做朋友。", "被一陣大風吹走而掉落在那裡。", "主人特地帶來給小花貓睡覺的。"], answer: 2, explanation: "第一段寫道「一陣大風吹過，把李爺爺手裡的舊雨傘吹走了...最後掉在公園角落的草地上」。" },
+                { id: 26, category: "閱讀理解", concept: "文意推論", text: "下列哪一個選項符合老雨傘的心境歷程轉變？", options: ["孤單 → 驚喜 → 快樂", "驚訝 → 生氣 → 難過", "害怕 → 孤單 → 快樂", "快樂 → 害怕 → 孤單"], answer: 0, explanation: "開始覺得無用「孤單」，發現能當帳篷「驚訝(喜)」，最後交到朋友覺得溫暖「快樂」。" },
+                { id: 27, category: "閱讀理解", concept: "統整主旨", text: "這個故事主要想告訴我們什麼想法？", options: ["隨便丟棄物品會造成環境嚴重的汙染。", "看似無用、老舊的東西也能發揮新的價值。", "下雨天出門一定要記得帶堅固的雨傘。", "小動物不應該隨便拿人類遺失的物品。"], answer: 1, explanation: "童話寓意為天生我材必有用，轉變角度就能發現新價值。" },
+                
+                { id: 28, category: "閱讀理解", concept: "提取訊息", text: "依據文章內容，下列哪一個選項是正確的？", options: ["變色龍的舌頭很短，所以只能吃身邊的蟲子。", "變色龍的雙眼可以分別轉動，看向不同的方向。", "變色龍改變體色唯一的原因就是為了躲避敵人。", "變色龍的動作非常敏捷，常常在樹林間快速奔跑。"], answer: 1, explanation: "文中提到「左眼和右眼可以分別看向不同的方向」。" },
+                { id: 29, category: "閱讀理解", concept: "文意推論", text: "根據文章中提到的「變色龍改變體色」的原因，下列哪一項沒有被提及？", options: ["為了調節體溫（吸熱或散熱）。", "為了表達情緒或警告敵人。", "為了發出光芒吸引昆蟲靠近。", "為了隱藏自己與環境融為一體。"], answer: 2, explanation: "文中並未提及發出光芒吸引昆蟲。" },
+                { id: 30, category: "閱讀理解", concept: "統整主旨", text: "我們如果要幫這篇文章訂一個副標題，下列哪一個選項最合適？", options: ["變色龍的飲食習慣與消化", "變色龍的奇妙特徵與本領", "變色龍的居住環境與氣候", "變色龍的演化歷史與危機"], answer: 1, explanation: "文章介紹了眼睛、舌頭、變色等獨特本領。" }
+            ]
+        };
+
+        // --- STATE MANAGEMENT ---
+        let currentTab = 'dashboard';
+        let currentConceptFilter = 'all';
+        let currentTextId = 'text-1';
+
+        // --- DOM ELEMENTS & INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            initFilters();
+            renderQuestions();
+            initReadingTabs();
+            renderReadingText();
+        });
+
+        // --- UI LOGIC: Tabs ---
+        function switchTab(tabId) {
+            // Update buttons
+            ['dashboard', 'explorer', 'reading'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                const sec = document.getElementById(`sec-${id}`);
+                if (id === tabId) {
+                    btn.className = "px-4 py-2 text-sm font-medium rounded-md bg-white shadow text-primary transition-colors";
+                    sec.classList.remove('hidden');
+                    sec.classList.add('block');
+                } else {
+                    btn.className = "px-4 py-2 text-sm font-medium rounded-md text-textMuted hover:text-textMain transition-colors";
+                    sec.classList.remove('block');
+                    sec.classList.add('hidden');
+                }
+            });
+            currentTab = tabId;
+        }
+
+        // --- LOGIC: Dashboard Charts ---
+        function initCharts() {
+            // Domain Doughnut Chart
+            const ctxDomain = document.getElementById('domainChart').getContext('2d');
+            new Chart(ctxDomain, {
+                type: 'doughnut',
+                data: {
+                    labels: ['語文知識題', '閱讀理解題'],
+                    datasets: [{
+                        data: [testData.overview.knowledge, testData.overview.reading],
+                        backgroundColor: ['#0d9488', '#ea580c'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    cutout: '65%'
+                }
+            });
+
+            // Concept Bar Chart
+            const ctxConcept = document.getElementById('conceptChart').getContext('2d');
+            const conceptLabels = Object.keys(testData.concepts);
+            const conceptData = Object.values(testData.concepts);
+            
+            new Chart(ctxConcept, {
+                type: 'bar',
+                data: {
+                    labels: conceptLabels,
+                    datasets: [{
+                        label: '題數',
+                        data: conceptData,
+                        backgroundColor: '#0d9488',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 2 } },
+                        x: {
+                            ticks: {
+                                callback: function(val, index) {
+                                    // Wrap logic for long labels (though these are short)
+                                    let label = this.getLabelForValue(val);
+                                    return label.length > 5 ? label.substring(0,5) + '..' : label;
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // --- LOGIC: Explorer ---
+        function initFilters() {
+            const container = document.getElementById('filter-container');
+            const concepts = ["全部", "字音分辨", "多音字辨識", "形近字", "詞彙意義", "成語理解", "句型辨識", "修辭技巧", "文體辨識", "大意摘要", "提取訊息", "文意推論", "統整主旨"];
+            
+            concepts.forEach(concept => {
+                const btn = document.createElement('button');
+                btn.textContent = concept;
+                btn.className = `px-3 py-1 text-sm rounded-full border transition-colors ${concept === '全部' ? 'bg-primary text-white border-primary' : 'bg-white text-textMuted border-stone-200 hover:border-primary hover:text-primary'}`;
+                btn.onclick = () => filterQuestions(concept, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function filterQuestions(concept, clickedBtn) {
+            currentConceptFilter = concept === '全部' ? 'all' : concept;
+            
+            // Update button styles
+            const buttons = document.getElementById('filter-container').querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.className = `px-3 py-1 text-sm rounded-full border transition-colors ${btn === clickedBtn ? 'bg-primary text-white border-primary' : 'bg-white text-textMuted border-stone-200 hover:border-primary hover:text-primary'}`;
+            });
+
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const grid = document.getElementById('questions-grid');
+            grid.innerHTML = '';
+
+            const filtered = testData.questions.filter(q => 
+                currentConceptFilter === 'all' || q.concept === currentConceptFilter
+            );
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p class="text-textMuted col-span-full py-8 text-center">此分類暫無範例題目收錄。</p>';
+                return;
+            }
+
+            filtered.forEach(q => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-5 rounded-xl shadow-sm border border-stone-100 interactive-card flex flex-col h-full';
+                
+                let optionsHtml = q.options.map((opt, i) => `
+                    <button id="opt-exp-${q.id}-${i}" onclick="selectOption(${q.id}, ${i}, 'exp')" class="w-full text-left flex items-start gap-3 p-3 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors mb-2 bg-white">
+                        <span class="font-bold shrink-0 w-6 h-6 flex items-center justify-center bg-stone-100 rounded-full text-sm transition-colors">${i+1}</span>
+                        <span class="mt-0.5">${opt}</span>
+                    </button>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="inline-block px-2 py-1 bg-primaryLight text-primary text-xs font-bold rounded">第 ${q.id} 題 • ${q.concept}</span>
+                        <span class="text-xs text-stone-400">${q.category}</span>
+                    </div>
+                    <p class="font-medium text-textMain mb-4 whitespace-pre-line">${q.text}</p>
+                    <div class="mb-2 flex-grow">
+                        ${optionsHtml}
+                    </div>
+                    <div id="ans-exp-${q.id}" class="hidden mt-2 p-4 bg-stone-50 rounded-lg text-sm border border-stone-200">
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleAnswer(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                el.classList.add('block');
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('block');
+            }
+        }
+
+        // --- LOGIC: Reading Texts ---
+        function initReadingTabs() {
+            const tabsContainer = document.getElementById('text-tabs');
+            tabsContainer.innerHTML = '';
+            
+            testData.texts.forEach((text, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = text.title;
+                btn.className = `shrink-0 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${index === 0 ? 'bg-white text-primary border-t border-x border-stone-200' : 'text-textMuted hover:text-textMain hover:bg-white/50 border-transparent'}`;
+                btn.onclick = () => selectReadingText(text.id, btn);
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function selectReadingText(textId, clickedBtn) {
+            currentTextId = textId;
+            
+            // Update tabs visually
+            const tabs = document.getElementById('text-tabs').querySelectorAll('button');
+            tabs.forEach(btn => {
+                if (btn === clickedBtn) {
+                    btn.className = 'shrink-0 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors bg-white text-primary border-t border-x border-stone-200';
+                } else {
+                    btn.className = 'shrink-0 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors text-textMuted hover:text-textMain hover:bg-white/50 border-transparent';
+                }
+            });
+
+            renderReadingText();
+        }
+
+        function renderReadingText() {
+            const textData = testData.texts.find(t => t.id === currentTextId);
+            if (!textData) return;
+
+            // Render Text Content
+            const contentDiv = document.getElementById('text-content');
+            contentDiv.innerHTML = `
+                <span class="text-xs font-bold text-accent bg-orange-100 px-2 py-1 rounded inline-block mb-3">${textData.type}</span>
+                <h3 class="text-2xl font-bold text-textMain mb-4">${textData.title}</h3>
+                <div class="text-stone-700 leading-loose text-lg">${textData.content}</div>
+            `;
+
+            // Render Associated Questions
+            const qsDiv = document.getElementById('text-questions');
+            qsDiv.innerHTML = '<h4 class="font-bold text-lg mb-4 flex items-center gap-2"><span>📝</span> 相關試題</h4>';
+            
+            const relatedQs = testData.questions.filter(q => textData.questions.includes(q.id));
+            
+            relatedQs.forEach(q => {
+                const qCard = document.createElement('div');
+                qCard.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-4';
+                
+                let optionsHtml = q.options.map((opt, i) => `
+                    <button id="opt-read-${q.id}-${i}" onclick="selectOption(${q.id}, ${i}, 'read')" class="w-full text-left flex items-start gap-3 p-3 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors mb-2 bg-white">
+                        <span class="font-bold shrink-0 w-6 h-6 flex items-center justify-center bg-stone-100 rounded-full text-sm transition-colors">${i+1}</span>
+                        <span class="mt-0.5">${opt}</span>
+                    </button>
+                `).join('');
+
+                qCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-bold text-primary">第 ${q.id} 題</span>
+                        <span class="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded">${q.concept}</span>
+                    </div>
+                    <p class="font-medium text-textMain mb-4">${q.text}</p>
+                    <div class="mb-2">${optionsHtml}</div>
+                    <div id="ans-read-${q.id}" class="hidden mt-2 p-3 bg-stone-50 rounded-lg text-sm border border-stone-200">
+                    </div>
+                `;
+                qsDiv.appendChild(qCard);
+            });
+        }
+
+        function selectOption(qId, selectedIdx, context) {
+            const q = testData.questions.find(x => x.id === qId);
+            if (!q) return;
+
+            const isCorrect = (selectedIdx === q.answer);
+
+            // Disable all options and update styling
+            for (let i = 0; i < q.options.length; i++) {
+                const btn = document.getElementById(`opt-${context}-${qId}-${i}`);
+                if (!btn) continue;
+                
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-stone-50', 'cursor-pointer');
+                btn.classList.add('cursor-default');
+
+                const numSpan = btn.querySelector('span');
+
+                if (i === q.answer) {
+                    // Style for the correct answer
+                    btn.classList.remove('border-stone-200', 'bg-white');
+                    btn.classList.add('border-teal-500', 'bg-teal-50', 'text-teal-900');
+                    numSpan.classList.remove('bg-stone-100');
+                    numSpan.classList.add('bg-teal-500', 'text-white');
+                } else if (i === selectedIdx && !isCorrect) {
+                    // Style for incorrectly selected answer
+                    btn.classList.remove('border-stone-200', 'bg-white');
+                    btn.classList.add('border-red-500', 'bg-red-50', 'text-red-900');
+                    numSpan.classList.remove('bg-stone-100');
+                    numSpan.classList.add('bg-red-500', 'text-white');
+                } else {
+                    // Dim unselected wrong options
+                    btn.classList.add('opacity-40');
+                }
+            }
+
+            // Show explanation with animation
+            const ansDiv = document.getElementById(`ans-${context}-${qId}`);
+            if (ansDiv) {
+                const headerHtml = isCorrect
+                    ? `<div class="font-bold text-teal-700 mb-2 flex items-center gap-1"><span class="text-lg">✅</span> 答對了！</div>`
+                    : `<div class="font-bold text-red-700 mb-2 flex items-center gap-1"><span class="text-lg">❌</span> 答錯了，正確答案是選項 ${q.answer + 1}</div>`;
+
+                ansDiv.innerHTML = `
+                    ${headerHtml}
+                    <p class="text-stone-700 leading-relaxed"><strong>解析：</strong>${q.explanation}</p>
+                `;
+                ansDiv.classList.remove('hidden');
+                ansDiv.classList.add('block', 'animate-fade-in');
+            }
+        }
+    </script>
+</body>
+</html>
