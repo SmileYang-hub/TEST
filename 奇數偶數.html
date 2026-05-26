@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>奇偶數魔法盒 - 逐步算式大屏版</title>
+    <title>奇偶數魔法盒 - 提示可隱藏大屏版</title>
     <style>
         /* 哆啦A夢馬卡龍風格大屏配色 */
         :root {
@@ -34,11 +34,12 @@
             height: 100%;
             background-color: var(--dora-white);
             box-shadow: 10px 0 30px rgba(0,0,0,0.05);
-            padding: 60px 50px;
+            padding: 50px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start; /* 改為靠上對齊，方便提示區向下延伸 */
+            gap: 25px;
             z-index: 10;
         }
 
@@ -46,7 +47,7 @@
             font-size: 64px;
             color: var(--dora-blue);
             font-weight: bold;
-            margin: 0 0 40px 0;
+            margin: 0 0 10px 0;
             text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
         }
 
@@ -58,7 +59,6 @@
             background-color: #F5F5F5;
             border-radius: 40px;
             padding: 15px;
-            margin-bottom: 40px;
         }
 
         .btn-adjust {
@@ -90,7 +90,7 @@
 
         .btn-action {
             width: 100%;
-            padding: 30px;
+            padding: 25px;
             font-size: 48px;
             font-weight: bold;
             background-color: var(--dora-yellow);
@@ -100,21 +100,62 @@
             cursor: pointer;
             box-shadow: 0 10px 20px rgba(255, 241, 118, 0.4);
             transition: transform 0.2s;
-            margin-bottom: 40px;
         }
 
         .btn-action:active {
             transform: scale(0.98) translateY(5px);
-            box-shadow: 0 5px 10px rgba(255, 241, 118, 0.4);
         }
 
-        .hint-box {
+        /* 新增：提示控制按鈕 */
+        .btn-toggle-hint {
+            width: 100%;
+            padding: 15px;
             font-size: 32px;
+            font-weight: bold;
             background-color: #ECEFF1;
-            padding: 30px;
-            border-radius: 20px;
-            line-height: 1.6;
             color: #546E7A;
+            border: 2px solid #CFD8DC;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-toggle-hint:active { transform: scale(0.98); }
+
+        /* 【修改重點】放大版的提示區，填滿原本紅框的位置 */
+        .hint-box {
+            background-color: #ECEFF1;
+            padding: 40px 30px;
+            border-radius: 30px;
+            border: 4px dashed #CFD8DC;
+            flex-grow: 1; /* 自動伸展填滿剩餘空間 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 垂直居中 */
+            gap: 30px;
+        }
+
+        .hint-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--dora-dark);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .hint-row {
+            font-size: 40px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        /* 讓數字背景有像卡片一樣的包覆感 */
+        .digit-badge {
+            background-color: var(--dora-white);
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
 
         /* 右側視覺面板 */
@@ -197,20 +238,17 @@
             text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
             display: flex;
             justify-content: center;
-            gap: 15px; /* 算式各部分之間的間距 */
+            gap: 15px;
         }
 
-        /* 算式的每一個部分，預設為隱藏但不縮排 (保留空間) */
-        .math-part {
-            visibility: hidden; 
-        }
+        .math-part { visibility: hidden; }
 
         .conclusion-text {
             font-size: 70px;
             font-weight: bold;
             line-height: 1.2;
             visibility: hidden;
-            min-height: 84px; /* 預留高度避免畫面跳動 */
+            min-height: 84px;
         }
 
         .even-text { color: #2E7D32; }
@@ -218,7 +256,7 @@
 
         /* 算式逐步控制按鈕區 */
         .step-controls {
-            display: none; /* 初始隱藏，動畫跑完才顯示 */
+            display: none;
             margin-top: 30px;
             gap: 20px;
         }
@@ -245,11 +283,7 @@
         }
 
         .btn-step:active { transform: scale(0.95); }
-        .btn-step:disabled { 
-            opacity: 0.5; 
-            cursor: not-allowed; 
-            transform: none; 
-        }
+        .btn-step:disabled { opacity: 0.5; cursor: not-allowed; }
 
     </style>
 </head>
@@ -261,17 +295,28 @@
             
             <div class="input-controls">
                 <button class="btn-adjust" onclick="adjustNumber(-1)">-</button>
-                <div class="number-display" id="numValue">23</div>
-                <button class="btn-adjust" onclick="adjustNumber(1)">+</button>
+                <div class="number-display" id="numValue">24</div> <button class="btn-adjust" onclick="adjustNumber(1)">+</button>
             </div>
 
-            <button class="btn-action" onclick="checkNumber()">配對看看</button>
+            <div style="margin-top: 25px;">
+                <button class="btn-action" onclick="checkNumber()">配對看看</button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button class="btn-toggle-hint" id="btnToggleHint" onclick="toggleHint()">👁️ 隱藏提示功能</button>
+            </div>
         </div>
 
-        <div class="hint-box">
-            <strong>🌟 看尾巴魔法：</strong><br>
-            尾數是 <span style="color:#2E7D32;">0, 2, 4, 6, 8</span> 是<strong>偶數</strong><br>
-            尾數是 <span style="color:#C62828;">1, 3, 5, 7, 9</span> 是<strong>奇數</strong>
+        <div class="hint-box" id="hintBox">
+            <div class="hint-title">🌟 觀察個位數判斷</div>
+            <div class="hint-row">
+                個位數是 <span class="digit-badge" style="color:#2E7D32;">0, 2, 4, 6, 8</span><br>
+                那就是 <strong class="even-text" style="font-size: 46px;">偶數</strong>
+            </div>
+            <div class="hint-row">
+                個位數是 <span class="digit-badge" style="color:#C62828;">1, 3, 5, 7, 9</span><br>
+                那就是 <strong class="odd-text" style="font-size: 46px;">奇數</strong>
+            </div>
         </div>
     </div>
 
@@ -290,14 +335,31 @@
     </div>
 
     <script>
-        let currentNumber = 23; 
+        let currentNumber = 24; 
         const maxNumber = 40; 
         const minNumber = 1;
 
-        // 逐步顯示的控制變數
         let currentStep = 0;
         let totalSteps = 0;
         let isCurrentOdd = false;
+
+        // 【修改重點】顯示與隱藏切換邏輯
+        function toggleHint() {
+            const hintBox = document.getElementById('hintBox');
+            const btn = document.getElementById('btnToggleHint');
+            
+            if (hintBox.style.display === 'none') {
+                hintBox.style.display = 'flex'; // 恢復彈性排版
+                btn.innerHTML = '👁️ 隱藏提示功能';
+                btn.style.backgroundColor = '#ECEFF1';
+                btn.style.color = '#546E7A';
+            } else {
+                hintBox.style.display = 'none'; // 完全隱藏，釋放空間
+                btn.innerHTML = '👁️ 顯示提示功能';
+                btn.style.backgroundColor = 'var(--dora-blue)';
+                btn.style.color = 'white';
+            }
+        }
 
         function adjustNumber(change) {
             let newNumber = currentNumber + change;
@@ -308,7 +370,6 @@
             }
         }
 
-        // 重置右側所有畫面
         function resetVisuals() {
             document.getElementById('visualArea').innerHTML = '';
             document.getElementById('mathArea').innerHTML = '';
@@ -318,7 +379,7 @@
         }
 
         function checkNumber() {
-            resetVisuals(); // 開始前先清空
+            resetVisuals();
             
             const visualArea = document.getElementById('visualArea');
             isCurrentOdd = (currentNumber % 2 !== 0);
@@ -327,7 +388,6 @@
 
             let delay = 0; 
 
-            // 產生配對群組動畫
             for (let i = 0; i < pairs; i++) {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'pair-group';
@@ -341,7 +401,6 @@
                 visualArea.appendChild(groupDiv);
             }
 
-            // 處理落單
             if (remainder === 1) {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'pair-group';
@@ -352,7 +411,6 @@
                 visualArea.appendChild(groupDiv);
             }
 
-            // 等待動畫結束後，準備好算式的 HTML 結構並顯示按鈕
             setTimeout(() => {
                 prepareMathSteps(pairs);
             }, delay * 1000 + 400);
@@ -361,7 +419,6 @@
         function prepareMathSteps(pairs) {
             const mathArea = document.getElementById('mathArea');
             
-            // 把算式拆成多個 span，一開始全部設為 visibility: hidden
             let html = `
                 <span class="math-part" id="step1">${currentNumber}</span>
                 <span class="math-part" id="step2">÷</span>
@@ -378,35 +435,30 @@
 
             mathArea.innerHTML = html;
 
-            // 準備結論文字 (先隱藏)
             const conclusionArea = document.getElementById('conclusionArea');
             if (isCurrentOdd) {
-                conclusionArea.innerHTML = `<span class="odd-text">÷2 剩1，是奇數！ </span>`;
+                conclusionArea.innerHTML = `<span class="odd-text">÷2 剩1，是奇數！</span>`;
             } else {
                 conclusionArea.innerHTML = `<span class="even-text">÷2 整除，沒有餘數，是偶數！ </span>`;
             }
 
-            // 顯示控制按鈕，重置步驟
             document.getElementById('stepControls').style.display = 'flex';
             currentStep = 0;
             updateStepButtonText();
         }
 
-        // 按鈕：下一步
         function showNextStep() {
             if (currentStep < totalSteps) {
                 currentStep++;
                 document.getElementById(`step${currentStep}`).style.visibility = 'visible';
                 updateStepButtonText();
             } else if (currentStep === totalSteps) {
-                // 算式顯示完了，顯示結論
                 document.getElementById('conclusionArea').style.visibility = 'visible';
                 currentStep++;
                 updateStepButtonText();
             }
         }
 
-        // 按鈕：全部顯示
         function showAllSteps() {
             for (let i = 1; i <= totalSteps; i++) {
                 document.getElementById(`step${i}`).style.visibility = 'visible';
@@ -416,7 +468,6 @@
             updateStepButtonText();
         }
 
-        // 動態更新「下一步」按鈕上的文字提示，方便老師知道按下去會出什麼
         function updateStepButtonText() {
             const btn = document.getElementById('btnNext');
             btn.disabled = false;
@@ -434,10 +485,6 @@
                 case 6: 
                     if (isCurrentOdd) btn.innerText = "▶ 下一步 (結論)";
                     else { btn.innerText = "✅ 完成"; btn.disabled = true; }
-                    break;
-                case 7: 
-                    btn.innerText = "✅ 完成"; 
-                    btn.disabled = true; 
                     break;
                 default: 
                     btn.innerText = "✅ 完成"; 
