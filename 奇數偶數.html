@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奇偶數魔法盒 - 逐步算式大屏版</title>
+    <style>
+        /* 哆啦A夢馬卡龍風格大屏配色 */
+        :root {
+            --dora-blue: #4FC3F7;
+            --dora-light-blue: #E1F5FE;
+            --dora-white: #FFFFFF;
+            --dora-yellow: #FFF176;
+            --dora-red: #FF8A80;
+            --dora-dark: #263238;
+            --dorayaki: #FFB74D;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--dora-light-blue);
+            font-family: 'Helvetica Neue', Arial, 'Microsoft JhengHei', sans-serif;
+            color: var(--dora-dark);
+            display: flex;
+        }
+
+        /* 左側控制面板 */
+        .control-panel {
+            width: 35%;
+            height: 100%;
+            background-color: var(--dora-white);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+            padding: 60px 50px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 64px;
+            color: var(--dora-blue);
+            font-weight: bold;
+            margin: 0 0 40px 0;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        /* 觸控友善的數字輸入區 */
+        .input-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #F5F5F5;
+            border-radius: 40px;
+            padding: 15px;
+            margin-bottom: 40px;
+        }
+
+        .btn-adjust {
+            width: 90px;
+            height: 90px;
+            font-size: 60px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50%;
+            background-color: var(--dora-white);
+            color: var(--dora-blue);
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-adjust:active { transform: scale(0.9); }
+
+        .number-display {
+            font-size: 80px;
+            font-weight: bold;
+            width: 120px;
+            text-align: center;
+            color: var(--dora-dark);
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 30px;
+            font-size: 48px;
+            font-weight: bold;
+            background-color: var(--dora-yellow);
+            color: #424242;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255, 241, 118, 0.4);
+            transition: transform 0.2s;
+            margin-bottom: 40px;
+        }
+
+        .btn-action:active {
+            transform: scale(0.98) translateY(5px);
+            box-shadow: 0 5px 10px rgba(255, 241, 118, 0.4);
+        }
+
+        .hint-box {
+            font-size: 32px;
+            background-color: #ECEFF1;
+            padding: 30px;
+            border-radius: 20px;
+            line-height: 1.6;
+            color: #546E7A;
+        }
+
+        /* 右側視覺面板 */
+        .visual-panel {
+            width: 65%;
+            height: 100%;
+            padding: 50px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        /* 上部：圓點視覺區 */
+        .dots-area {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 30px;
+            padding-bottom: 20px;
+            border-bottom: 6px solid var(--dora-white);
+        }
+
+        .pair-group {
+            display: flex;
+            gap: 20px;
+            background-color: rgba(255, 255, 255, 0.6);
+            padding: 20px;
+            border-radius: 60px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+            border: 4px solid var(--dora-white);
+        }
+
+        .item {
+            width: 80px;
+            height: 80px;
+            background-color: var(--dorayaki);
+            border-radius: 50%;
+            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.15), 0 5px 10px rgba(0,0,0,0.1);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .item.single { background-color: var(--dora-red); }
+
+        @keyframes popIn {
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* 下部：超大算式與結論區 */
+        .info-panel {
+            width: 100%;
+            background-color: var(--dora-white);
+            border-radius: 30px;
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border: 6px solid var(--dora-light-blue);
+            min-height: 300px;
+            color: var(--dora-dark);
+            margin-top: 10px;
+            position: relative;
+        }
+
+        .math-text {
+            font-size: 130px; 
+            font-weight: bold;
+            line-height: 1;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* 算式各部分之間的間距 */
+        }
+
+        /* 算式的每一個部分，預設為隱藏但不縮排 (保留空間) */
+        .math-part {
+            visibility: hidden; 
+        }
+
+        .conclusion-text {
+            font-size: 70px;
+            font-weight: bold;
+            line-height: 1.2;
+            visibility: hidden;
+            min-height: 84px; /* 預留高度避免畫面跳動 */
+        }
+
+        .even-text { color: #2E7D32; }
+        .odd-text { color: #C62828; }
+
+        /* 算式逐步控制按鈕區 */
+        .step-controls {
+            display: none; /* 初始隱藏，動畫跑完才顯示 */
+            margin-top: 30px;
+            gap: 20px;
+        }
+
+        .btn-step {
+            padding: 15px 30px;
+            font-size: 28px;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-next-step {
+            background-color: var(--dora-blue);
+            color: white;
+            box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+        }
+
+        .btn-show-all {
+            background-color: #E0E0E0;
+            color: var(--dora-dark);
+        }
+
+        .btn-step:active { transform: scale(0.95); }
+        .btn-step:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+            transform: none; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="control-panel">
+        <div>
+            <h1 class="title">✨ 奇偶數魔法盒</h1>
+            
+            <div class="input-controls">
+                <button class="btn-adjust" onclick="adjustNumber(-1)">-</button>
+                <div class="number-display" id="numValue">23</div>
+                <button class="btn-adjust" onclick="adjustNumber(1)">+</button>
+            </div>
+
+            <button class="btn-action" onclick="checkNumber()">配對看看</button>
+        </div>
+
+        <div class="hint-box">
+            <strong>🌟 看尾巴魔法：</strong><br>
+            尾數是 <span style="color:#2E7D32;">0, 2, 4, 6, 8</span> 是<strong>偶數</strong><br>
+            尾數是 <span style="color:#C62828;">1, 3, 5, 7, 9</span> 是<strong>奇數</strong>
+        </div>
+    </div>
+
+    <div class="visual-panel">
+        <div class="dots-area" id="visualArea"></div>
+
+        <div class="info-panel" id="infoPanel">
+            <div id="mathArea" class="math-text"></div>
+            <div id="conclusionArea" class="conclusion-text"></div>
+            
+            <div class="step-controls" id="stepControls">
+                <button class="btn-step btn-next-step" id="btnNext" onclick="showNextStep()">▶ 下一步 (被除數)</button>
+                <button class="btn-step btn-show-all" onclick="showAllSteps()">⏭ 全部顯示</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNumber = 23; 
+        const maxNumber = 40; 
+        const minNumber = 1;
+
+        // 逐步顯示的控制變數
+        let currentStep = 0;
+        let totalSteps = 0;
+        let isCurrentOdd = false;
+
+        function adjustNumber(change) {
+            let newNumber = currentNumber + change;
+            if (newNumber >= minNumber && newNumber <= maxNumber) {
+                currentNumber = newNumber;
+                document.getElementById('numValue').innerText = currentNumber;
+                resetVisuals();
+            }
+        }
+
+        // 重置右側所有畫面
+        function resetVisuals() {
+            document.getElementById('visualArea').innerHTML = '';
+            document.getElementById('mathArea').innerHTML = '';
+            document.getElementById('conclusionArea').innerHTML = '';
+            document.getElementById('conclusionArea').style.visibility = 'hidden';
+            document.getElementById('stepControls').style.display = 'none';
+        }
+
+        function checkNumber() {
+            resetVisuals(); // 開始前先清空
+            
+            const visualArea = document.getElementById('visualArea');
+            isCurrentOdd = (currentNumber % 2 !== 0);
+            const pairs = Math.floor(currentNumber / 2);
+            const remainder = currentNumber % 2;
+
+            let delay = 0; 
+
+            // 產生配對群組動畫
+            for (let i = 0; i < pairs; i++) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'pair-group';
+                for(let j = 0; j < 2; j++) {
+                    const item = document.createElement('div');
+                    item.className = 'item';
+                    item.style.animationDelay = `${delay}s`;
+                    groupDiv.appendChild(item);
+                    delay += 0.06; 
+                }
+                visualArea.appendChild(groupDiv);
+            }
+
+            // 處理落單
+            if (remainder === 1) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'pair-group';
+                const item = document.createElement('div');
+                item.className = 'item single';
+                item.style.animationDelay = `${delay}s`;
+                groupDiv.appendChild(item);
+                visualArea.appendChild(groupDiv);
+            }
+
+            // 等待動畫結束後，準備好算式的 HTML 結構並顯示按鈕
+            setTimeout(() => {
+                prepareMathSteps(pairs);
+            }, delay * 1000 + 400);
+        }
+
+        function prepareMathSteps(pairs) {
+            const mathArea = document.getElementById('mathArea');
+            
+            // 把算式拆成多個 span，一開始全部設為 visibility: hidden
+            let html = `
+                <span class="math-part" id="step1">${currentNumber}</span>
+                <span class="math-part" id="step2">÷</span>
+                <span class="math-part" id="step3">2</span>
+                <span class="math-part" id="step4">=</span>
+                <span class="math-part" id="step5">${pairs}</span>
+            `;
+            totalSteps = 5;
+
+            if (isCurrentOdd) {
+                html += `<span class="math-part" id="step6">... 1</span>`;
+                totalSteps = 6;
+            }
+
+            mathArea.innerHTML = html;
+
+            // 準備結論文字 (先隱藏)
+            const conclusionArea = document.getElementById('conclusionArea');
+            if (isCurrentOdd) {
+                conclusionArea.innerHTML = `<span class="odd-text">÷2 剩1，是奇數！ </span>`;
+            } else {
+                conclusionArea.innerHTML = `<span class="even-text">÷2 整除，沒有餘數，是偶數！ </span>`;
+            }
+
+            // 顯示控制按鈕，重置步驟
+            document.getElementById('stepControls').style.display = 'flex';
+            currentStep = 0;
+            updateStepButtonText();
+        }
+
+        // 按鈕：下一步
+        function showNextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                document.getElementById(`step${currentStep}`).style.visibility = 'visible';
+                updateStepButtonText();
+            } else if (currentStep === totalSteps) {
+                // 算式顯示完了，顯示結論
+                document.getElementById('conclusionArea').style.visibility = 'visible';
+                currentStep++;
+                updateStepButtonText();
+            }
+        }
+
+        // 按鈕：全部顯示
+        function showAllSteps() {
+            for (let i = 1; i <= totalSteps; i++) {
+                document.getElementById(`step${i}`).style.visibility = 'visible';
+            }
+            document.getElementById('conclusionArea').style.visibility = 'visible';
+            currentStep = totalSteps + 1;
+            updateStepButtonText();
+        }
+
+        // 動態更新「下一步」按鈕上的文字提示，方便老師知道按下去會出什麼
+        function updateStepButtonText() {
+            const btn = document.getElementById('btnNext');
+            btn.disabled = false;
+            
+            switch (currentStep) {
+                case 0: btn.innerText = "▶ 下一步 (被除數)"; break;
+                case 1: btn.innerText = "▶ 下一步 (除號)"; break;
+                case 2: btn.innerText = "▶ 下一步 (除以2)"; break;
+                case 3: btn.innerText = "▶ 下一步 (等號)"; break;
+                case 4: btn.innerText = "▶ 下一步 (商)"; break;
+                case 5: 
+                    if (isCurrentOdd) btn.innerText = "▶ 下一步 (餘數)"; 
+                    else btn.innerText = "▶ 下一步 (結論)";
+                    break;
+                case 6: 
+                    if (isCurrentOdd) btn.innerText = "▶ 下一步 (結論)";
+                    else { btn.innerText = "✅ 完成"; btn.disabled = true; }
+                    break;
+                case 7: 
+                    btn.innerText = "✅ 完成"; 
+                    btn.disabled = true; 
+                    break;
+                default: 
+                    btn.innerText = "✅ 完成"; 
+                    btn.disabled = true;
+            }
+        }
+
+        window.onload = checkNumber;
+    </script>
+</body>
+</html>
